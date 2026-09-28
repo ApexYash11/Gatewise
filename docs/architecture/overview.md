@@ -32,8 +32,8 @@ packages/
 ├── decisions/     Typed schemas, provider abstraction, Jev provider, versioned registry
 ├── context/       PR context construction and the untrusted-input boundary
 ├── config/        Environment configuration and secret handling
-├── github/        (Phase 1) webhook verification and PR fetching
-├── actions/       (Phase 1) action router: add_label, comment, request_review, trigger_workflow
+├── github/        Webhook signature verification, deduplication, event parsing
+├── actions/       Decision pipeline and deterministic action planning
 ├── audit/         (Phase 2) decision and action audit store
 └── evaluation/    (Phase 2) benchmark harness and provider comparison
 ```
@@ -104,6 +104,27 @@ Two independent layers apply:
 Layer 2 is defence in depth, not a guarantee. The wrapper is a fixed template; the
 payload is never formatted into it.
 
+## Ingestion and pipeline
+
+```
+verify signature → deduplicate → parse → build context → evaluate → record
+```
+
+The ordering is a security property, not a style choice:
+
+- **Signature first.** A missing, malformed, or mismatched `X-Hub-Signature-256`
+  header rejects the delivery before the payload is even parsed. Comparison is
+  constant-time, so the expected digest cannot be recovered through timing.
+- **Deduplicate second.** Never trust an unauthenticated delivery ID, and never
+  spend a model call on a redelivery. The deduplicator's memory is bounded, since
+  the process may run for a long time.
+- **Parse third.** Only `pull_request.opened`, `.synchronize`, and `.reopened` are
+  handled. Other events are skipped rather than treated as errors, because GitHub
+  sends many.
+
+Action planning uses levels and probability bands, never exact floats — see
+[jev-contract.md](jev-contract.md) for why the model is non-deterministic.
+
 ## Failure handling
 
 Decisions fail closed. A provider timeout, rate limit, malformed response, or missing
@@ -114,13 +135,19 @@ decision.
 
 ## Status
 
-Implemented and tested: typed schemas, provider abstraction, the real Jev provider,
-the versioned question registry, the context builder and untrusted-input boundary,
-and configuration handling.
+Implemented and tested (135 tests):
 
-Not yet implemented: webhook ingestion, action routing, persistence, dashboard,
-evaluation harness.
+- typed decision schemas matching the verified Jev contract;
+- the provider abstraction and the real Jev provider, **verified against the live
+  API**;
+- the versioned question registry and the six MVP pull request decisions;
+- the context builder and untrusted-input boundary;
+- GitHub webhook signature verification, delivery deduplication, and event parsing;
+- the decision pipeline and deterministic action planning.
 
-**A live call against the real Jev API has not been made — no API key is available in
-this environment.** See [jev-contract.md](jev-contract.md) for the verification status.
-Nothing in this repository substitutes for that call.
+Not yet implemented: action *execution* against the GitHub API (needs a GitHub App
+installation token), persistence, the dashboard, and the evaluation harness.
+
+A live run through the whole pipeline is reproducible with
+`python scripts/smoke_pipeline.py`. Nothing in this repository substitutes a
+simulated decision for a real one.

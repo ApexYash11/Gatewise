@@ -7,9 +7,10 @@ Gatewise sits between AI coding agents / GitHub events and engineering actions. 
 extracts a compact context from a pull request, asks a real decision model for typed
 answers, and lets application policy decide what to do with them.
 
-> **Status: pre-MVP.** The decision layer, versioned question registry, and
-> untrusted-input boundary are implemented and tested. Webhook ingestion, action
-> routing, persistence, and the dashboard are not built yet.
+> **Status: pre-MVP.** The decision layer, versioned question registry,
+> untrusted-input boundary, GitHub webhook verification, and the decision pipeline
+> are implemented and tested (135 tests). Action *execution*, persistence, the
+> dashboard, and the evaluation harness are not built yet.
 >
 > **Live API status: working.** Gatewise is making real calls to TypeSafe's Jev
 > model via OpenRouter and receiving real typed decisions. See
@@ -98,8 +99,10 @@ If both are set, the direct TypeSafe key wins. The key is never committed, never
 logged, and never sent to the model.
 
 ```bash
-pytest                                  # 75 tests, no network access required
-python scripts/smoke_jev.py             # one real call against the real model
+pytest                                  # 135 tests, no network access required
+python scripts/smoke_jev.py             # one real call: context -> six decisions
+python scripts/smoke_pipeline.py        # full pipeline, real model, action plan
+python scripts/diagnose_jev.py          # print the resolved credential source
 ```
 
 `smoke_jev.py` exits `0` on success, `2` when no key is configured, and `3` when
@@ -113,8 +116,10 @@ The test suite stubs only the HTTP transport. It never simulates model judgement
 packages/decisions/   Typed schemas, provider abstraction, Jev provider, registry
 packages/context/     PR context builder and untrusted-input handling
 packages/config/      Environment configuration and secret handling
-tests/unit/           Schemas, registry, configuration
-tests/integration/    Provider and end-to-end pipeline
+packages/github/      Webhook signature verification, deduplication, event parsing
+packages/actions/     Decision pipeline and deterministic action planning
+tests/unit/           Schemas, registry, configuration, webhook security, dedup
+tests/integration/    Provider, end-to-end pipeline, webhook flow
 tests/adversarial/    Prompt-injection and untrusted-input cases
 docs/architecture/    Overview and the verified Jev API contract
 docs/decisions/       Architectural decision records
