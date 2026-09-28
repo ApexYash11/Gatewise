@@ -14,7 +14,15 @@ import sys
 
 sys.path.insert(0, "packages")
 
-from context import build_context
+# Show which source actually wins. Ambient environment variables take precedence
+# over .env in pydantic-settings, so a stale exported variable silently wins.
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from config import Settings
 from decisions.jev import JevDecisionProvider
 from decisions.provider import DecisionUnavailable
 from decisions.registry import load_registry
@@ -22,14 +30,15 @@ from decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
 
 async def main() -> int:
-    try:
-        from config import Settings
+    from context import build_context
 
-        settings = Settings()
-        api_key, base_url = settings.jev_credentials()
-    except RuntimeError as exc:
-        print(f"BLOCKED: {exc}")
-        return 2
+    # .env is loaded at import time above. Note that an ambient environment
+    # variable takes precedence over .env, so print which one is in use.
+    settings = Settings()
+    api_key, base_url = settings.jev_credentials()
+    print(f"key tail   : {api_key[-4:]} (len {len(api_key)})")
+    print(f"source     : {'environment variable' if os.environ.get('OPENROUTER_API_KEY') else '.env file'}")
+    print()
 
     ctx = build_context(
         number=5215,

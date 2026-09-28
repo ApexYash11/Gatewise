@@ -11,12 +11,11 @@ answers, and lets application policy decide what to do with them.
 > untrusted-input boundary are implemented and tested. Webhook ingestion, action
 > routing, persistence, and the dashboard are not built yet.
 >
-> **Live API status: the request reaches the real Jev model and authenticates
-> successfully.** The configured OpenRouter account currently returns
-> `402 Insufficient credits`, so no decision payload has been retrieved yet. No
-> code in this repository simulates or substitutes for that response — the run
-> fails loudly instead. See
-> [docs/architecture/jev-contract.md](docs/architecture/jev-contract.md).
+> **Live API status: working.** Gatewise is making real calls to TypeSafe's Jev
+> model via OpenRouter and receiving real typed decisions. See
+> [docs/architecture/jev-contract.md](docs/architecture/jev-contract.md) for a
+> sample run. No code in this repository simulates or substitutes for that
+> response.
 
 ## Why this exists
 

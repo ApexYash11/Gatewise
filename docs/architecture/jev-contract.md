@@ -88,7 +88,7 @@ does.
 }
 ```
 
-## Three findings that shaped the design
+## Four findings that shaped the design
 
 ### 1. `score` is interpolated, and that is correct
 
@@ -114,7 +114,27 @@ Re-hydrating a stored score answer therefore fails validation. Gatewise normaliz
 keys to strings once, at the provider boundary, in
 `decisions.schemas.normalize_score_levels`.
 
-### 3. Noul answers have no confidence field
+This was not theoretical: the SDK's own error output during a live attempt showed
+`probabilities.3.[key] Input should be a valid integer`, confirming the mismatch
+empirically.
+
+### 3. Jev is not deterministic across identical requests
+
+Two consecutive live calls on identical context returned `pr_risk` 2.06 and 2.09,
+and `pr_breaking_change` 0.38 and 0.40, while `pr_category` was identical at
+confidence 1.00.
+
+This matters for design, not just documentation:
+
+- **Route on levels and bands, never on exact floats.** Comparing a stored `0.70`
+  against a threshold of `0.70` is meaningless. `ScoreAnswer.resolve_level()` and
+  noul probability bands exist for this reason.
+- **The evaluation harness must tolerate this.** Accuracy and F1 are robust to it; any
+  metric asserting bitwise equality of scores is not.
+- **Do not treat small score deltas as signal.** A 0.03 difference between two runs is
+  noise, not a change in the pull request.
+
+### 4. Noul answers have no confidence field
 
 `NoulAnswer` is `{ "type": "noul", "noul": <float> }` — nothing else. There is no
 separate confidence value, so Gatewise does not manufacture one. A test asserts the
@@ -186,11 +206,46 @@ key takes precedence; otherwise an OpenRouter key switches the base URL to
 | --- | --- |
 | `https://api.typesafe.ai/v1/models` without a key | 403 (reachable, auth required) |
 | `https://openrouter.ai/api/v1/chat/completions` without a key | 401 (reachable, auth required) |
-| Live `POST https://openrouter.ai/api/v1/systemone` with a real key | **402 Insufficient credits** |
-| Decision payload retrieved end-to-end | **Not yet — awaiting credits** |
+| Live `POST https://openrouter.ai/api/v1/systemone` | **200 — real decisions returned** |
+| End-to-end PR evaluation via `scripts/smoke_jev.py` | **Passing** |
 
-The live request authenticates and is routed to the real model; only billing blocks
-it. The SDK's own error output during that attempt independently confirmed finding 2
-in the next section: re-validating a raw score answer fails with
-`probabilities.3.[key] Input should be a valid integer`, which is exactly the
-string-vs-int key mismatch `normalize_score_levels` exists to handle.
+### A real run
+
+Input: a simulated pull request bumping the NGINX ingress controller 4.4.0 → 4.9.0,
+touching `deploy/helm/values.yaml` and a test file.
+
+```
+transport: openrouter
+model:     jev-latest
+
+pr_additional_testing      0.70
+pr_breaking_change         0.40
+pr_category                dependency (confidence 1.00)
+pr_maintainer_review       0.53
+pr_risk                    2.09 -> level 2 [Moderate. Real behavioural change
+                           affecting known consumers.] (confidence 0.62)
+pr_security_review         0.42
+```
+
+Two observations worth recording:
+
+1. **The decisions are coherent.** A dependency bump classified as `dependency`
+   (confidence 1.00) with a *Moderate* risk level is exactly right: not a doc change,
+   not a critical one. Security review at 0.42 is also sensible, since a dependency
+   bump touches the supply chain.
+2. **The model is not deterministic.** A repeat run returned `pr_risk` 2.06 and
+   `pr_breaking_change` 0.38 rather than 2.09 and 0.40, while `pr_category` was
+   identical at confidence 1.00. Judgements are stable; exact floats are not. Anything
+   comparing runs must therefore compare levels and bands, not raw numbers.
+
+### Credential precedence gotcha
+
+`pydantic-settings` resolves **ambient environment variables ahead of `.env`**. A
+rotated key written to `.env` is therefore silently ignored while an older exported
+variable remains set — which surfaced as a misleading provider error rather than a
+configuration error. `scripts/diagnose_jev.py` reads `.env` first and prints the
+resolved key's last four characters so this is diagnosable, and
+`tests/unit/test_config.py::test_environment_variable_wins_over_dotenv` pins the
+precedence rule.
+
+## Verification status of the rest

@@ -113,3 +113,30 @@ def test_safe_summary_reports_transport_without_leaking_keys(monkeypatch):
     assert summary["transport"] == "openrouter"
     assert summary["openrouter_api_key_configured"] is True
     assert "sk-or-super-secret" not in repr(summary)
+
+
+def test_environment_variable_wins_over_dotenv(monkeypatch, tmp_path):
+    """Regression: a stale exported variable must not silently shadow .env.
+
+    pydantic-settings gives ambient environment variables priority over the .env
+    file. During development this caused a rotated key in .env to be ignored in
+    favour of an old exported key, which surfaced only as a confusing provider
+    error. The key itself resolves correctly; the risk is misdiagnosis, so this
+    test pins the precedence rule that the diagnostic script relies on.
+    """
+    _clear_keys(monkeypatch)
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("OPENROUTER_API_KEY=from-dotenv-file\n", encoding="utf-8")
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "from-ambient-environment")
+
+    settings = Settings(_env_file=dotenv)
+    key, base_url = settings.jev_credentials()
+
+    assert key == "from-ambient-environment", "ambient env var takes precedence"
+    assert base_url == Settings.OPENROUTER_BASE_URL
+
+    # With no ambient variable, the .env value is used.
+    _clear_keys(monkeypatch)
+    from_file = Settings(_env_file=dotenv)
+    assert from_file.jev_credentials()[0] == "from-dotenv-file"
