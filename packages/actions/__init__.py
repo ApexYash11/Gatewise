@@ -1,16 +1,26 @@
-"""Action routing.
+"""Action routing and the decision pipeline.
 
-Not yet implemented. Initial actions will be ``add_label``, ``comment``,
-``request_review`` and ``trigger_workflow``.
+:class:`actions.pipeline.DecisionPipeline` orchestrates a single pull request
+evaluation and produces a fully auditable :class:`~actions.pipeline.EvaluationRun`.
 
-Deliberately excluded for now, pending explicit safeguards: ``merge``, ``delete``,
-``force_push``, ``release`` and ``deployment``.
+:class:`~actions.pipeline.DecisionPipeline.plan_actions` translates a run's typed
+decisions into a deterministic action plan. Policy lives here, in application
+code, and is expressed in levels and probability bands -- never exact floats,
+because Jev is non-deterministic.
 
-Design constraints already established:
-- actions are selected by *policy over decisions*, never by heuristic code;
-- every action carries a deterministic identifier derived from the decision run, so
-  a redelivered webhook cannot produce a duplicate action;
-- if the decision run failed, no action executes.
+Deliberately excluded for now, pending explicit safeguards: ``merge``,
+``delete``, ``force_push``, ``release`` and ``deployment``.
+
+Executing actions against the GitHub API is not implemented: it needs a GitHub App
+installation token. A plan is produced and recorded first, so the decision-to-action
+link is auditable even before execution exists.
 """
 
-__all__: list[str] = []
+from .pipeline import DecisionPipeline, EvaluationRun, RunStatus, hash_state
+
+__all__ = [
+    "DecisionPipeline",
+    "EvaluationRun",
+    "RunStatus",
+    "hash_state",
+]
