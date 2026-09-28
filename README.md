@@ -8,12 +8,13 @@ extracts a compact context from a pull request, asks a real decision model for t
 answers, and lets application policy decide what to do with them.
 
 > **Status: pre-MVP.** The decision layer, versioned question registry,
-> untrusted-input boundary, GitHub webhook verification, and the decision pipeline
-> are implemented and tested (135 tests). Action *execution*, persistence, the
-> dashboard, and the evaluation harness are not built yet.
+> untrusted-input boundary, GitHub webhook verification, the decision pipeline,
+> persistence, and the HTTP API are implemented and tested (158 tests).
+> Action *execution* against GitHub, the dashboard, and the evaluation harness are
+> not built yet.
 >
-> **Live API status: working.** Gatewise is making real calls to TypeSafe's Jev
-> model via OpenRouter and receiving real typed decisions. See
+> **Live API status: working.** Gatewise serves real calls to TypeSafe's Jev
+> model via OpenRouter and records real typed decisions. See
 > [docs/architecture/jev-contract.md](docs/architecture/jev-contract.md) for a
 > sample run. No code in this repository simulates or substitutes for that
 > response.
@@ -99,7 +100,7 @@ If both are set, the direct TypeSafe key wins. The key is never committed, never
 logged, and never sent to the model.
 
 ```bash
-pytest                                  # 135 tests, no network access required
+pytest                                  # 158 tests, no network access required
 python scripts/smoke_jev.py             # one real call: context -> six decisions
 python scripts/smoke_pipeline.py        # full pipeline, real model, action plan
 python scripts/diagnose_jev.py          # print the resolved credential source
@@ -110,6 +111,39 @@ the decision is unavailable (for example, insufficient credits).
 
 The test suite stubs only the HTTP transport. It never simulates model judgement.
 
+## Running the API
+
+```bash
+# Required
+set TYPESAFE_API_KEY=sk-...            # or OPENROUTER_API_KEY for the same Jev model
+set GITHUB_WEBHOOK_SECRET=...          # the webhook receives signed deliveries only
+set DATABASE_URL=sqlite+aiosqlite:///./gatewise.db
+
+set PYTHONPATH=packages;apps/api
+python -m uvicorn app.main:app --port 8000
+```
+
+Interactive API docs are then at <http://localhost:8000/docs>.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /webhooks/github` | Signed pull request delivery. Verifies the signature before parsing. |
+| `GET /api/health` | Configuration state only. Never calls the model. |
+| `GET /api/pull-requests` | Evaluated pull requests, newest first. |
+| `GET /api/pull-requests/{id}` | One pull request with its runs. |
+| `GET /api/pull-requests/{id}/decisions` | Decisions for the latest run, with question versions. |
+| `GET /api/decisions` | Recent decisions across all pull requests. |
+| `POST /internal/decisions/evaluate` | Ad-hoc evaluation without a webhook. |
+
+Try it end to end against a running server:
+
+```bash
+set GITHUB_WEBHOOK_SECRET=...
+python scripts/send_test_webhook.py http://127.0.0.1:8000
+```
+
+The script signs the payload, so the server performs a genuine signature check.
+
 ## Repository layout
 
 ```
@@ -118,8 +152,10 @@ packages/context/     PR context builder and untrusted-input handling
 packages/config/      Environment configuration and secret handling
 packages/github/      Webhook signature verification, deduplication, event parsing
 packages/actions/     Decision pipeline and deterministic action planning
+packages/audit/       SQLAlchemy models and the audit store
+apps/api/             FastAPI service: webhook receiver and read endpoints
 tests/unit/           Schemas, registry, configuration, webhook security, dedup
-tests/integration/    Provider, end-to-end pipeline, webhook flow
+tests/integration/    Provider, pipeline, webhook flow, persistence, HTTP API
 tests/adversarial/    Prompt-injection and untrusted-input cases
 docs/architecture/    Overview and the verified Jev API contract
 docs/decisions/       Architectural decision records
