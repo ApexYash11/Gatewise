@@ -136,6 +136,13 @@ class AuditStore:
         await self._session.flush()
 
         for action in actions:
+            # The fingerprint is derived from the context hash, so re-evaluating an
+            # unchanged pull request (a `synchronize` with no real content change,
+            # or a replay after a restart) produces the same action identity. That
+            # is the dedup guarantee working, not a failure: skip rather than
+            # attempt an insert that would violate the unique constraint.
+            if await self.has_fingerprint(action["fingerprint"]):
+                continue
             self._session.add(
                 ActionRecord(
                     decision_run_id=record.id,
@@ -226,3 +233,14 @@ class AuditStore:
             select(ActionRecord.id).where(ActionRecord.fingerprint == fingerprint)
         )
         return existing is not None
+
+    async def list_recent_decisions(self, limit: int = 100) -> list[Any]:
+        """Most recent decisions across all runs, newest first."""
+        from .models import DecisionRecord
+
+        query = (
+            select(DecisionRecord)
+            .order_by(DecisionRecord.id.desc())
+            .limit(limit)
+        )
+        return list(await self._session.scalars(query))

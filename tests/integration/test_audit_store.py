@@ -192,6 +192,33 @@ async def test_pull_requests_are_listable_and_filterable(store):
     run = await pipeline.evaluate(event, make_context(event))
     await audit.record_run(event, run)
 
+
+
+async def test_reevaluating_unchanged_pr_does_not_violate_fingerprint(store):
+    """Regression: a second run of identical context must not crash.
+
+    The action fingerprint derives from the context hash, so an unchanged pull
+    request re-evaluated (a synchronize with no content change, or a replay after a
+    restart) produces identical fingerprints. Before this was handled, the unique
+    constraint raised and the webhook returned HTTP 500.
+    """
+    audit, _ = store
+    pipeline, _ = make_pipeline(REAL_PAYLOAD)
+    event = make_event()
+
+    first = await pipeline.evaluate(event, make_context(event))
+    await audit.record_run(event, first, pipeline.plan_actions(first))
+
+    second = await pipeline.evaluate(event, make_context(event))
+    planned = pipeline.plan_actions(second)
+    record = await audit.record_run(event, second, planned)
+
+    assert planned, "the payload should justify at least one action"
+    # The new run is stored, but the duplicate actions were skipped.
+    assert record.status == "succeeded"
+    assert await audit.get_actions(record.id) == []
+    assert await audit.has_fingerprint(planned[0]["fingerprint"]) is True
+
     listed = await audit.list_pull_requests()
     assert len(listed) == 1
     assert listed[0].number == 5215
