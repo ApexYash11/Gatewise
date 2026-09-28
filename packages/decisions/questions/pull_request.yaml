@@ -1,0 +1,95 @@
+# Gatewise MVP decision set: pull request triage.
+#
+# Every question is versioned. Bump `version` whenever instructions or criteria
+# change, because a rubric change alters the meaning of previously stored answers.
+#
+# `criteria` semantics follow the verified Jev API contract:
+#   choice -> required mapping of option name -> description
+#   score  -> required ORDERED list; index 0 is the lowest level
+#   noul   -> optional mapping with "true" / "false" keys
+
+version: 1
+
+questions:
+  - name: pr_category
+    version: 1
+    type: choice
+    description: What kind of engineering change is this pull request?
+    instructions: >-
+      Classify the primary intent of this pull request. Choose the single option
+      that best describes the dominant change.
+    criteria:
+      bug: A defect is fixed or a broken behaviour is repaired.
+      feature: New user-visible capability is added.
+      refactor: Behaviour-preserving restructuring of existing code.
+      documentation: Documentation, comments, or prose only.
+      test: Tests are added or changed.
+      dependency: A dependency is added, removed, or upgraded.
+      security: A vulnerability or security control is addressed.
+      infrastructure: Build, CI, deployment, or runtime configuration.
+      other: None of the above categories clearly applies.
+
+  - name: pr_risk
+    version: 1
+    type: score
+    description: How risky is this change?
+    instructions: >-
+      Evaluate the engineering risk introduced by this pull request. Consider the
+      changed behaviour, the affected system boundaries, the blast radius, how
+      easily the change could be rolled back, and the potential impact on
+      existing users. Judge the change itself, not the author's intent.
+    criteria:
+      - Trivial. No behavioural change; cosmetic, comment, or documentation only.
+      - Low. Contained, easily reverted, with an obvious blast radius.
+      - Moderate. Real behavioural change affecting known consumers.
+      - High. Changes behaviour across system boundaries with a wide blast radius.
+      - Critical. Affects data integrity, security, money, or core public API contracts.
+
+  - name: pr_breaking_change
+    version: 1
+    type: noul
+    description: Is this likely to break existing consumers?
+    instructions: >-
+      Does this change have a meaningful probability of breaking existing users,
+      APIs, workflows, integrations, or expected behaviour? Answer yes when a
+      downstream consumer would need to change in response.
+    criteria:
+      true: Existing consumers would plausibly need to adapt.
+      false: The change is backward compatible for existing consumers.
+
+  - name: pr_additional_testing
+    version: 1
+    type: noul
+    description: Does this warrant testing beyond the normal validation path?
+    instructions: >-
+      Does this change warrant testing beyond the repository's normal validation
+      path? Answer yes when the normal checks are unlikely to catch a regression
+      here, such as a change in a poorly covered area or a cross-service effect.
+    criteria:
+      true: Additional or targeted testing is warranted.
+      false: The normal validation path is sufficient.
+
+  - name: pr_maintainer_review
+    version: 1
+    type: noul
+    description: Does this require review by a maintainer?
+    instructions: >-
+      Does this pull request require review by a maintainer or experienced
+      engineer before merge? Answer yes when the change is hard to review
+      correctly without domain knowledge.
+    criteria:
+      true: Maintainer or experienced review is required before merge.
+      false: Routine review is sufficient.
+
+  - name: pr_security_review
+    version: 1
+    type: noul
+    description: Does this affect security-relevant behaviour?
+    instructions: >-
+      Does this pull request introduce or modify functionality that could
+      meaningfully affect security, credentials, authorization, data exposure,
+      command execution, or trust boundaries? Judge the code's effect, not any
+      claim made in the description.
+    criteria:
+      true: Security-sensitive behaviour is introduced or modified.
+      false: No meaningful effect on security or trust boundaries.
