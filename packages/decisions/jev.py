@@ -74,6 +74,18 @@ class JevDecisionProvider(DecisionProvider):
         """Which endpoint is serving Jev: ``typesafe`` or ``openrouter``."""
         return self._transport_name
 
+    @property
+    def is_official_jev(self) -> bool:
+        """Whether this provider is genuinely TypeSafe's hosted Jev.
+
+        A local Jev-compatible server (Kev, Rizzo Flow) speaks the same wire
+        format, so it would otherwise be indistinguishable from hosted Jev by
+        response shape alone. Every recorded decision must be attributable, so
+        callers persist this flag alongside the answers. Anything served by
+        OpenRouter still routes to TypeSafe, so it counts as official.
+        """
+        return self._transport_name in {"typesafe", "openrouter"}
+
     def _build_questions(self, questions: dict[str, Any]) -> dict[str, Any]:
         """Translate our schemas into the SDK's question objects."""
         built: dict[str, Any] = {}

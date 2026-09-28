@@ -227,6 +227,32 @@ def test_provider_records_its_transport(real_jev_payload):
     assert provider.model == "jev-latest"
 
 
+def test_official_jev_flag_distinguishes_local_compatible_servers(real_jev_payload):
+    """A local Jev-compatible server must never be recorded as hosted Jev."""
+    import typesafe_sdk
+
+    local = JevDecisionProvider(
+        "local",
+        "kev-4b",
+        base_url="http://127.0.0.1:8009",
+        transport_name="local",
+        client=typesafe_sdk.AsyncTypeSafeClient(
+            api_key="local", base_url="http://127.0.0.1:8009"
+        ),
+    )
+    assert local.is_official_jev is False
+    assert local.transport == "local"
+
+    # Both hosted paths are genuinely TypeSafe's model.
+    assert make_provider(real_jev_payload).is_official_jev is True
+    openrouter = JevDecisionProvider(
+        "sk-or-test", transport_name="openrouter", client=typesafe_sdk.AsyncTypeSafeClient(
+            api_key="sk-or-test", base_url="https://openrouter.ai/api"
+        )
+    )
+    assert openrouter.is_official_jev is True
+
+
 def test_provider_refuses_to_start_without_a_key():
     with pytest.raises(ValueError, match="API key is required"):
         JevDecisionProvider("")

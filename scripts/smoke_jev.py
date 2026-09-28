@@ -58,7 +58,10 @@ async def main() -> int:
         await provider.close()
 
     print(f"transport: {provider.transport}")
-    print(f"model:     {provider.model}\n")
+    print(f"model:     {provider.model}")
+    if not provider.is_official_jev:
+        print("WARNING:  not TypeSafe's hosted Jev -- results must be labelled as such")
+    print()
     for name, answer in answers.items():
         if isinstance(answer, ChoiceAnswer):
             print(f"{name:26} {answer.choice} (confidence {answer.confidence:.2f})")

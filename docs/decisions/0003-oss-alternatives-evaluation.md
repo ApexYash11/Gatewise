@@ -28,7 +28,30 @@ were checked on Hugging Face:
 
 The projects are real, not vaporware, and several ship genuine weights.
 
-## Why they are not the primary provider
+## Correction: these projects DO expose HTTP APIs
+
+An earlier draft of this ADR wrongly implied the alternatives offered no API. That
+was wrong, and it materially changed the picture. Verified from each project's own
+README and source:
+
+| Project | HTTP API | Endpoint | Jev-compatible | Serve command |
+| --- | --- | --- | --- | --- |
+| Kev | Yes | `POST /v1/systemone` on `:8009` | **Yes** — official TypeSafe SDK works unchanged | `uv run --extra serve python -m kev.serve --run jaredpalmer/kev-4b --port 8009` |
+| Rizzo Flow | Yes | `POST /v1/systemone` on `:8017` | **Yes** — same body/response shape | `uv run rizzo serve` |
+| NanoJev | Yes | `POST /api/evaluate` on `:8765` | No — own contract | `python scripts/serve_decisions.py --port 8765` |
+| Laya (MLX) | No (library only) | — | No | `pip install laya-mlx`, in-process API |
+
+Kev states it plainly: *"The API matches TypeSafe's System One, so you can point
+their Python SDK at your local server."* Rizzo Flow adds: *"code written against the
+TypeSafe API can point at `localhost` by changing one URL."* An independent
+conformance suite (`jevcompat`) has been run against Rizzo's `/v1/systemone`,
+reporting three precise differences.
+
+This is significant for Gatewise specifically: `JevDecisionProvider` already accepts
+a `base_url`, so pointing it at a local Kev or Rizzo server is a **configuration
+change, not a code change** — the same mechanism used for the OpenRouter transport.
+
+## Why they are still not the primary provider
 
 **1. They would invalidate the central research question.** Gatewise exists to test
 whether a fast *typed decision model* is a reliable decision layer. Substituting a
@@ -36,20 +59,29 @@ different model changes the subject of the experiment. The specification is expl
 that an alternative must be identified *as* an alternative and never passed off as
 Jev.
 
-**2. The hardware here cannot run them meaningfully.** The development machine has a
-GTX 1650 with 4 GB VRAM and 15.7 GB RAM. The smallest Kev checkpoint (0.8B) is
-plausible on CPU; the 4B that the project itself recommends as a starting point is
-not. "Free" here means slow local inference, which defeats the low-latency premise the
-decision layer depends on.
+**2. The hardware here cannot run the recommended checkpoints.** The development
+machine has a GTX 1650 with 4 GB VRAM and 15.7 GB RAM. Kev's own table says Kev-4B
+needs a 32 GB Mac, L40S, or H100, and that "Kev-0.8B runs on any Apple Silicon Mac,
+L4" — the GTX 1650 is below that bar. Only the 0.8B checkpoint is plausible, on CPU,
+which is slow enough to defeat the low-latency premise. Rizzo Flow is friendlier: it
+runs on llama.cpp across CUDA, Vulkan, ROCm, SYCL, or plain CPU, and its authors
+report CPU-only and Intel Iris Xe results. Its 1.7B Q8 build (~1.8 GB) would be the
+realistic local option here, at a documented accuracy cost.
 
-**3. Calibration is unproven, and calibration is the entire point.** Jev's value is
-*calibrated* confidence, so thresholds can be set rationally. Rizzo Flow's own
-response schema enumerates `probability_status` values including
+**3. Calibration is the entire value, and the evidence is mixed.** Jev's value is
+*calibrated* confidence, so thresholds can be set rationally. Rizzo Flow states
+plainly: *"Probabilities are uncalibrated unless you calibrate them on your own data,
+and we make no claim of matching Jev or SemIf in quality."* Its response schema
+encodes this as `probability_status` values including
 `uncalibrated_conditional_option_scores` and
-`temperature_scaled_requires_held_out_validation` — the project itself states its
-probabilities may not be calibrated. A decision layer built on uncalibrated
-probabilities would produce confidently wrong escalation thresholds, which is the most
-dangerous possible failure for this application.
+`temperature_scaled_requires_held_out_validation`. On its own benchmark Rizzo Flow
+4B scores 0.648 accuracy / 0.205 Brier against Jev's 0.727 / 0.148 — respectable, but
+measurably behind. Kev is the stronger claim: it reports per-checkpoint temperatures
+fitted on held-out data, and Kev-27B at 0.848 accuracy / 0.236 Brier is close to
+Jev's 0.857 / 0.211, though its own authors note *"Jev has only been run on the
+development sets"* and that this is *"not a controlled comparison."* Either way, a
+decision layer built on uncalibrated probabilities would produce confidently wrong
+escalation thresholds — the most dangerous possible failure for this application.
 
 **4. The popularity signals are not trustworthy.** Repositories created within the
 last 12 days carry 4.5k-7.6k stars, and one Hugging Face model shows 4,246 likes
@@ -69,9 +101,17 @@ evolving rapidly, with examples not independently tested.
    remaining obstacle, after which the first real decisions can be observed.
 3. **Kev is recorded as the preferred baseline for the evaluation harness**, per the
    specification's requirement to compare providers. It is the strongest candidate
-   because it publishes weights *and* claims the TypeSafe System One API shape, so it
-   can be compared on the same dataset with minimal glue. It is explicitly a
-   **baseline for measurement, not a production fallback**.
+   because it publishes weights, reports per-checkpoint calibration, and claims the
+   TypeSafe System One API shape. It is explicitly a **baseline for measurement, not a
+   production fallback**.
+4. **A local provider can be enabled with configuration only.** Because Kev and Rizzo
+   Flow both serve `/v1/systemone`, running one locally requires setting
+   `TYPESAFE_BASE_URL` to the local server and supplying any non-empty API key. No new
+   provider class is required. This is a *deliberate escape hatch for an unfunded
+   account*, and it must be labelled as a different model wherever its output is
+   recorded — the provider name is `jev` because the wire format matches, so the
+   transport and model identifiers must be persisted separately to avoid
+   misattributing local results to hosted Jev.
 
 ## Revisit trigger
 
