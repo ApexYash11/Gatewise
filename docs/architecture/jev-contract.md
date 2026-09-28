@@ -142,12 +142,55 @@ missing decision is never coerced into `risk = 0` or `safe = true`.
 - `GET https://api.typesafe.ai/v1/models` returns **HTTP 403** without credentials,
   confirming the endpoint is reachable and simply requires an API key.
 
-## Verification status
+## Transports: TypeSafe direct and OpenRouter
 
-| Check | Status |
+Both serve **the same real Jev model** — this is a routing change, not a change of
+model, and never a downgrade to a substitute.
+
+| | TypeSafe (direct) | OpenRouter |
+| --- | --- | --- |
+| Base URL | `https://api.typesafe.ai` | `https://openrouter.ai/api` |
+| Endpoint | `POST /v1/systemone` | `POST /v1/systemone` |
+| Key env var | `TYPESAFE_API_KEY` (alias `JEV_API_KEY`) | `OPENROUTER_API_KEY` |
+| Model | `jev-latest` | `typesafe/jev-1.13` (alias `~typesafe/jev-latest`) |
+| Context | 32,000 tokens | 32,000 tokens |
+| Input price | $0.042 / 1M | $0.042 / 1M |
+| Output price | $0.00 / 1M | $0.00 / 1M |
+| `usage.cost` | not returned | returned (USD) |
+
+The official TypeSafe SDK works against OpenRouter by changing the base URL; the SDK
+appends `/v1/systemone`, producing `https://openrouter.ai/api/v1/systemone`. Gatewise
+therefore supports both with no code duplication — only the configured base URL and
+key change.
+
+Gatewise resolves credentials with `Settings.jev_credentials()`. A direct TypeSafe
+key takes precedence; otherwise an OpenRouter key switches the base URL to
+`https://openrouter.ai/api`.
+
+> Note: `client.models.list()` will fail against OpenRouter, because `GET /api/v1/models`
+> returns OpenRouter's model-list shape rather than TypeSafe's, which the SDK rejects.
+> Gatewise does not call it. Use the OpenRouter Models API directly instead.
+
+### Two caveats found in the OpenRouter path
+
+1. **Extra response fields.** OpenRouter adds `id`, `provider`, and `usage.cost`
+   alongside TypeSafe's `model`, `answers`, and `usage`. Our schemas ignore unknown
+   fields, and `extract_usage` captures the reported cost. Cost is left `None` when
+   the provider does not report it, rather than being estimated.
+2. **402 Insufficient credits.** A distinct, common failure. Gatewise maps it to an
+   explicit billing message so it is never mistaken for a code defect.
+
+## Live verification status
+
+| Check | Result |
 | --- | --- |
-| Contract read from installed SDK | Done |
-| Request shape asserted in tests | Done (`test_request_matches_the_verified_jev_contract`) |
-| Response normalization tested | Done |
-| All failure paths tested | Done |
-| **Live call against the real API** | **Blocked — no API key available** |
+| `https://api.typesafe.ai/v1/models` without a key | 403 (reachable, auth required) |
+| `https://openrouter.ai/api/v1/chat/completions` without a key | 401 (reachable, auth required) |
+| Live `POST https://openrouter.ai/api/v1/systemone` with a real key | **402 Insufficient credits** |
+| Decision payload retrieved end-to-end | **Not yet — awaiting credits** |
+
+The live request authenticates and is routed to the real model; only billing blocks
+it. The SDK's own error output during that attempt independently confirmed finding 2
+in the next section: re-validating a raw score answer fails with
+`probabilities.3.[key] Input should be a valid integer`, which is exactly the
+string-vs-int key mismatch `normalize_score_levels` exists to handle.

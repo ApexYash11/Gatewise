@@ -198,12 +198,18 @@ def normalize_score_levels(legend: Any, probabilities: Any) -> tuple[dict[str, s
 
 
 class Usage(BaseModel):
-    """Token accounting returned by the provider."""
+    """Token accounting returned by the provider.
+
+    ``cost`` is populated when the request is served through OpenRouter, which
+    reports a per-request USD cost. TypeSafe's own endpoint does not return it, so
+    it stays ``None`` there rather than being estimated.
+    """
 
     model_config = ConfigDict(extra="ignore")
 
     input_tokens: int | None = None
     output_tokens: int | None = None
+    cost: float | None = None
 
 
 class DecisionSet(BaseModel):

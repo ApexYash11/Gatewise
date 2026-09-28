@@ -43,3 +43,24 @@ prohibition: no mock decision engine.
   it, and the benchmark harness can compare it against Jev on the same dataset.
 - The abstraction is not speculative generality, since a second provider is already
   contemplated by the evaluation requirements.
+- Billing failures (OpenRouter `402`) are mapped to an explicit, actionable message
+  rather than a generic API error, so an unfunded account is never mistaken for a
+  code defect.
+
+## Update: OpenRouter transport (2026-09-28)
+
+TypeSafe publishes Jev on OpenRouter as `typesafe/jev-1.13` (alias
+`~typesafe/jev-latest`) at identical pricing, context length, and API shape. This is
+**not** an alternative model — it is the same real Jev model behind a different host.
+
+This changes nothing about the decision above. A base URL and an API key are
+configuration, not logic, so OpenRouter support is implemented as transport
+resolution in `Settings.jev_credentials()` rather than as a second provider class.
+Creating an `OpenRouterDecisionProvider` would have been the wrong move: it would
+duplicate the normalization and failure-mapping logic while implying the two are
+different decision systems, which would corrupt any later provider comparison in the
+evaluation harness.
+
+The distinction this guards against is easy to blur: a **transport** is *how* the same
+model is reached; a **provider** is *which* model answers. Only the latter may be
+varied for comparative measurement.

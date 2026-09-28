@@ -14,6 +14,7 @@ Two deliberate naming decisions:
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import ClassVar
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -30,9 +31,13 @@ class Settings(BaseSettings):
     )
 
     # --- Decision provider -------------------------------------------------- #
+    # Two ways to reach the *same* real Jev model. See docs/architecture/jev-contract.md.
     typesafe_api_key: str | None = Field(
         default=None,
         validation_alias=AliasChoices("TYPESAFE_API_KEY", "JEV_API_KEY"),
+    )
+    openrouter_api_key: str | None = Field(
+        default=None, validation_alias="OPENROUTER_API_KEY"
     )
     jev_model: str = Field(default="jev-latest", validation_alias="TYPESAFE_DEFAULT_MODEL")
     jev_base_url: str | None = Field(default=None, validation_alias="TYPESAFE_BASE_URL")
@@ -50,7 +55,12 @@ class Settings(BaseSettings):
     # --- Dashboard ---------------------------------------------------------- #
     next_public_api_url: str = "http://localhost:8000"
 
-    @field_validator("typesafe_api_key", "github_private_key", "github_webhook_secret")
+    @field_validator(
+        "typesafe_api_key",
+        "openrouter_api_key",
+        "github_private_key",
+        "github_webhook_secret",
+    )
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:
         if value is None:
@@ -60,28 +70,55 @@ class Settings(BaseSettings):
 
     @property
     def has_jev_key(self) -> bool:
-        return bool(self.typesafe_api_key)
+        return bool(self.typesafe_api_key or self.openrouter_api_key)
+
+    #: OpenRouter's System One base URL. The SDK appends ``/v1/systemone``,
+    #: producing ``https://openrouter.ai/api/v1/systemone``, which serves the
+    #: same real Jev model and the same request/response shape.
+    OPENROUTER_BASE_URL: ClassVar[str] = "https://openrouter.ai/api"
+
+    @property
+    def jev_transport(self) -> str:
+        """Which endpoint serves Jev: ``typesafe`` or ``openrouter``.
+
+        Reflects the credential that will actually be used, so a configured
+        OpenRouter key does not mislabel a run that goes direct to TypeSafe.
+        """
+        if self.typesafe_api_key:
+            return "typesafe"
+        return "openrouter" if self.openrouter_api_key else "typesafe"
+
+    def jev_credentials(self) -> tuple[str, str | None]:
+        """Return ``(api_key, base_url)`` for the configured transport.
+
+        A direct TypeSafe key takes precedence. When only an OpenRouter key is
+        present, the base URL is switched to OpenRouter's System One API, which
+        serves the *same* Jev model -- so this is a transport change, not a
+        change of model or a downgrade to a substitute.
+        """
+        if self.typesafe_api_key:
+            return self.typesafe_api_key, self.jev_base_url
+        if self.openrouter_api_key:
+            return self.openrouter_api_key, self.jev_base_url or self.OPENROUTER_BASE_URL
+        raise RuntimeError(
+            "No decision-model API key configured. Set TYPESAFE_API_KEY (or "
+            "JEV_API_KEY) for the TypeSafe endpoint, or OPENROUTER_API_KEY to "
+            "reach the same Jev model through OpenRouter. Gatewise does not "
+            "provide a fallback decision model."
+        )
 
     def require_jev_key(self) -> str:
-        """Return the API key or explain precisely what is missing.
-
-        Gatewise refuses to start the decision pipeline without a real key rather
-        than degrading to a simulated model.
-        """
-        if not self.typesafe_api_key:
-            raise RuntimeError(
-                "No decision-model API key configured. Set TYPESAFE_API_KEY (or "
-                "JEV_API_KEY) in the environment. Gatewise does not provide a "
-                "fallback decision model."
-            )
-        return self.typesafe_api_key
+        """Return the API key or explain precisely what is missing."""
+        return self.jev_credentials()[0]
 
     def safe_summary(self) -> dict[str, object]:
         """Configuration state for logs: presence only, never secret values."""
         return {
             "decision_provider": "jev",
+            "transport": self.jev_transport,
             "model": self.jev_model,
-            "typesafe_api_key_configured": self.has_jev_key,
+            "typesafe_api_key_configured": bool(self.typesafe_api_key),
+            "openrouter_api_key_configured": bool(self.openrouter_api_key),
             "github_app_configured": bool(self.github_app_id),
             "github_webhook_secret_configured": bool(self.github_webhook_secret),
             "database_url_scheme": self.database_url.split(":", 1)[0],

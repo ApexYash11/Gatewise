@@ -26,6 +26,7 @@ from .schemas import (
     ChoiceAnswer,
     NoulAnswer,
     ScoreAnswer,
+    Usage,
     normalize_score_levels,
 )
 
@@ -45,6 +46,7 @@ class JevDecisionProvider(DecisionProvider):
         *,
         timeout: float = 10.0,
         base_url: str | None = None,
+        transport_name: str = "typesafe",
         client: AsyncTypeSafeClient | None = None,
     ) -> None:
         if not api_key:
@@ -53,6 +55,8 @@ class JevDecisionProvider(DecisionProvider):
                 "simulated decision model"
             )
         self._model = model
+        # Both transports serve the identical real Jev model; only the host differs.
+        self._transport_name = transport_name
         self._client = client or AsyncTypeSafeClient(
             api_key=api_key,
             model=model,
@@ -64,6 +68,11 @@ class JevDecisionProvider(DecisionProvider):
     @property
     def model(self) -> str:
         return self._model
+
+    @property
+    def transport(self) -> str:
+        """Which endpoint is serving Jev: ``typesafe`` or ``openrouter``."""
+        return self._transport_name
 
     def _build_questions(self, questions: dict[str, Any]) -> dict[str, Any]:
         """Translate our schemas into the SDK's question objects."""
@@ -117,13 +126,50 @@ class JevDecisionProvider(DecisionProvider):
                 "Jev returned a response that failed schema validation"
             ) from exc
         except typesafe_sdk.TypeSafeAPIError as exc:
-            raise DecisionUnavailable(f"Jev API error: {exc}") from exc
+            raise DecisionUnavailable(self._describe_api_error(exc)) from exc
 
         return self._normalize(response, expected=set(questions))
 
     async def close(self) -> None:
         if self._owns_client:
             await self._client.aclose()
+
+    def _describe_api_error(self, exc: Exception) -> str:
+        """Turn a provider error into an actionable message.
+
+        Billing problems are separated from other API errors because they are the
+        single most common cause of a blocked run when going through OpenRouter,
+        and "insufficient credits" should never be mistaken for a code defect.
+        """
+        text = str(exc)
+        if "402" in text or "Insufficient credits" in text:
+            return (
+                "Jev is reachable but the account has insufficient credits. "
+                "Top up at https://openrouter.ai/settings/credits, or configure a "
+                "direct TypeSafe API key."
+            )
+        return f"Jev API error: {text}"
+
+    @staticmethod
+    def extract_usage(response: Any) -> Usage:
+        """Pull token counts and cost out of a provider response.
+
+        OpenRouter additionally reports ``usage.cost`` in USD; TypeSafe's own
+        endpoint does not, so cost stays ``None`` there rather than being guessed.
+        """
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return Usage()
+        raw_cost = getattr(usage, "cost", None)
+        try:
+            cost = float(raw_cost) if raw_cost is not None else None
+        except (TypeError, ValueError):
+            cost = None
+        return Usage(
+            input_tokens=getattr(usage, "input_tokens", None),
+            output_tokens=getattr(usage, "output_tokens", None),
+            cost=cost,
+        )
 
 
     def _normalize(self, response: Any, *, expected: set[str]) -> dict[str, Answer]:

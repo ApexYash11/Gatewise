@@ -11,10 +11,12 @@ answers, and lets application policy decide what to do with them.
 > untrusted-input boundary are implemented and tested. Webhook ingestion, action
 > routing, persistence, and the dashboard are not built yet.
 >
-> **A live call against the real Jev API has not yet been made** — no API key was
-> available in the development environment. See
-> [docs/architecture/jev-contract.md](docs/architecture/jev-contract.md). Nothing in
-> this repository simulates or substitutes for that call.
+> **Live API status: the request reaches the real Jev model and authenticates
+> successfully.** The configured OpenRouter account currently returns
+> `402 Insufficient credits`, so no decision payload has been retrieved yet. No
+> code in this repository simulates or substitutes for that response — the run
+> fails loudly instead. See
+> [docs/architecture/jev-contract.md](docs/architecture/jev-contract.md).
 
 ## Why this exists
 
@@ -82,13 +84,27 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-Copy `.env.example` to `.env` and set `TYPESAFE_API_KEY`. Get a key from
-<https://typesafe.ai>. The key is never committed, never logged, and never sent to
-the model.
+Copy `.env.example` to `.env` and set an API key. Two supported transports, both
+serving **the same real Jev model**:
 
 ```bash
-pytest                    # 65 tests, no network access required
+# Option A - OpenRouter (TypeSafe publishes Jev here; same model, same API shape)
+OPENROUTER_API_KEY=sk-or-...
+
+# Option B - direct from TypeSafe
+TYPESAFE_API_KEY=sk-...
 ```
+
+If both are set, the direct TypeSafe key wins. The key is never committed, never
+logged, and never sent to the model.
+
+```bash
+pytest                                  # 75 tests, no network access required
+python scripts/smoke_jev.py             # one real call against the real model
+```
+
+`smoke_jev.py` exits `0` on success, `2` when no key is configured, and `3` when
+the decision is unavailable (for example, insufficient credits).
 
 The test suite stubs only the HTTP transport. It never simulates model judgement.
 

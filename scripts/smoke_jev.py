@@ -16,6 +16,7 @@ sys.path.insert(0, "packages")
 
 from context import build_context
 from decisions.jev import JevDecisionProvider
+from decisions.provider import DecisionUnavailable
 from decisions.registry import load_registry
 from decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
@@ -24,7 +25,8 @@ async def main() -> int:
     try:
         from config import Settings
 
-        api_key = Settings().require_jev_key()
+        settings = Settings()
+        api_key, base_url = settings.jev_credentials()
     except RuntimeError as exc:
         print(f"BLOCKED: {exc}")
         return 2
@@ -41,13 +43,22 @@ async def main() -> int:
         diff="--- a/values.yaml\n+++ b/values.yaml\n- timeout: 30\n+ timeout: 60\n",
     )
 
-    provider = JevDecisionProvider(api_key)
+    provider = JevDecisionProvider(
+        api_key,
+        settings.jev_model,
+        base_url=base_url,
+        transport_name=settings.jev_transport,
+    )
     try:
         answers = await provider.evaluate(ctx.state, load_registry().build_request())
+    except DecisionUnavailable as exc:
+        print(f"UNAVAILABLE: {exc}")
+        return 3
     finally:
         await provider.close()
 
-    print(f"model: {provider.model}\n")
+    print(f"transport: {provider.transport}")
+    print(f"model:     {provider.model}\n")
     for name, answer in answers.items():
         if isinstance(answer, ChoiceAnswer):
             print(f"{name:26} {answer.choice} (confidence {answer.confidence:.2f})")
