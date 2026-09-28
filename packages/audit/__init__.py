@@ -1,14 +1,33 @@
-"""Audit store.
+"""Audit store: durable, reconstructable records of every decision.
 
-Not yet implemented. Will persist repositories, pull requests, decision runs,
-decisions, and actions per the schema in the specification.
+Tables cover repositories, pull requests, decision runs, individual decisions, and
+planned actions. The design principle is that a decision must be traceable to its
+provenance — which model answered, which question *version* was asked, what the
+context hash was, and what followed. A decision whose provenance is unknown is not
+auditable, so nothing is written without it.
 
-Invariants for this package:
-- a decision is stored together with the ``name@version`` of the question that
-  produced it, so a rubric change never silently reinterprets history;
-- secrets are never stored;
-- a failed decision run is recorded as a failure with its error, not omitted and
-  not stored as a low-risk result.
+Failures are rows, not absences. See ``store.py`` for why that distinction matters.
 """
 
-__all__: list[str] = []
+from .db import Base, create_engine, create_schema, session_scope
+from .models import (
+    ActionRecord,
+    DecisionRecord,
+    DecisionRunRecord,
+    PullRequestRecord,
+    Repository,
+)
+from .store import AuditStore
+
+__all__ = [
+    "ActionRecord",
+    "AuditStore",
+    "Base",
+    "DecisionRecord",
+    "DecisionRunRecord",
+    "PullRequestRecord",
+    "Repository",
+    "create_engine",
+    "create_schema",
+    "session_scope",
+]

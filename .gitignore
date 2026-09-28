@@ -22,6 +22,11 @@ htmlcov/
 *.pem
 *.key
 
+# Local database
+*.db
+*.sqlite
+*.sqlite3
+
 # Tooling
 .idea/
 .vscode/
