@@ -140,6 +140,55 @@ code {
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px;
   padding: 1px 5px; font-size: 11.5px; color: var(--accent);
 }
+/* Decision graph: the Context -> Decision -> Action path the spec asks to be
+   inspectable. Rendered as a flow rather than a chart, because the point is the
+   path a decision took, not a time series. */
+
+.graph { margin-top: 12px; }
+.gnode {
+  border: 1px solid var(--line); background: var(--panel-2);
+  border-radius: 7px; padding: 8px 10px; font-size: 11px; color: var(--ink-dim);
+}
+.gnode .gk { color: var(--ink-faint); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.gnode .gv { color: var(--ink); margin-top: 2px; }
+.gnode.warn { border-color: #4a3a1c; background: #1c1710; }
+.gnode.bad { border-color: #4a2323; background: #1d1111; }
+.gnode.ok { border-color: #1f4230; background: #0f1a14; }
+
+.grow { display: grid; gap: 0; grid-template-columns: 1fr; }
+.gedge { width: 1px; height: 12px; background: var(--line); margin: 0 auto; }
+.gcols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.glane { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.glist { display: grid; gap: 4px; }
+
+.gact {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px;
+  border: 1px solid #1f3b38; background: #10201e; color: var(--accent);
+  border-radius: 4px; padding: 2px 6px; margin: 0 4px 4px 0;
+}
+
+/* filter bar */
+.filters {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  margin: 0 0 18px;
+}
+.chip {
+  font-size: 11.5px; padding: 4px 11px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink-dim);
+  user-select: none;
+}
+.chip:hover { border-color: #313a45; color: var(--ink); }
+.chip[aria-pressed="true"] { border-color: var(--accent-dim); color: var(--accent); background: #0f1a19; }
+.search {
+  flex: 1; min-width: 180px; background: var(--panel); border: 1px solid var(--line);
+  color: var(--ink); border-radius: 999px; padding: 5px 13px; font: inherit; font-size: 12.5px;
+}
+.search:focus { outline: none; border-color: var(--accent-dim); }
+.search::placeholder { color: var(--ink-faint); }
+
+.hint { color: var(--ink-faint); font-size: 11.5px; margin: -6px 0 18px; }
+
 .foot {
   margin-top: 46px; padding-top: 16px; border-top: 1px solid var(--line);
   color: var(--ink-faint); font-size: 11.5px; display: flex; gap: 16px; flex-wrap: wrap;

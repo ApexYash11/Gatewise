@@ -16,6 +16,15 @@
   </header>
 
   <div class="stats" id="stats"></div>
+  <div class="filters" id="filters">
+    <span class="chip" data-filter="all" aria-pressed="true">all</span>
+    <span class="chip" data-filter="attention" aria-pressed="false">needs attention</span>
+    <span class="chip" data-filter="high" aria-pressed="false">high risk</span>
+    <span class="chip" data-filter="security" aria-pressed="false">security</span>
+    <span class="chip" data-filter="failed" aria-pressed="false">failed</span>
+    <input class="search" id="q" type="search" placeholder="filter by title, number or author…" autocomplete="off">
+  </div>
+  <div class="hint" id="hint"></div>
   <div id="body"><div class="empty">Loading decisions…</div></div>
 
   <div class="foot">

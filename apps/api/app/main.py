@@ -237,6 +237,54 @@ def create_app() -> FastAPI:
         decisions = await store.get_decisions(runs[0].id)
         return [_decision_view(decision) for decision in decisions]
 
+    @app.get("/api/pull-requests/{pull_request_id}/graph", tags=["data"])
+    async def get_pull_request_graph(
+        pull_request_id: int, session: AsyncSession = Depends(get_session)
+    ) -> dict:
+        """The decision path for the most recent run, in inspectable form.
+
+        Returns the context summary, every decision with its question version, and
+        the actions the run justified. This is the machine-readable form of the
+        decision graph the specification asks to be reconstructable.
+        """
+        store = AuditStore(session)
+        runs = await store.get_runs(pull_request_id)
+        if not runs:
+            raise HTTPException(
+                status_code=404, detail="no evaluation run for this pull request"
+            )
+        run = runs[0]
+        recorded = {a.fingerprint: a for a in await store.get_actions(run.id)}
+        # The run records what it justified; the actions table records what is
+        # still outstanding. A re-evaluated pull request dedupes to the same
+        # fingerprint, so an empty actions list here does not mean "no actions
+        # were justified" -- it means they were already recorded earlier.
+        planned = []
+        for entry in run.planned_actions or []:
+            fingerprint = entry.get("fingerprint")
+            existing = recorded.get(fingerprint)
+            planned.append(
+                {
+                    "action_type": entry.get("action_type"),
+                    "target": entry.get("target"),
+                    "fingerprint": fingerprint,
+                    "status": existing.status if existing is not None else "already_recorded",
+                }
+            )
+        return {
+            "pull_request_id": pull_request_id,
+            "run": _run_fields(run),
+            "context": {
+                "injection_flags": list(run.injection_flags or []),
+                "state_hash": run.state_hash,
+            },
+            "decisions": [
+                _decision_view(d).model_dump()
+                for d in await store.get_decisions(run.id)
+            ],
+            "actions": planned,
+        }
+
     @app.get("/api/decisions", response_model=list[DecisionView], tags=["data"])
     async def get_all_decisions(
         limit: int = 100, session: AsyncSession = Depends(get_session)

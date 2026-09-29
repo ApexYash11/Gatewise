@@ -117,6 +117,14 @@ class AuditStore:
             is_official_jev=run.is_official_jev,
             state_hash=run.state_hash,
             question_versions=list(run.question_versions),
+            planned_actions=[
+                {
+                    "action_type": a.get("action_type"),
+                    "target": a.get("target"),
+                    "fingerprint": a.get("fingerprint"),
+                }
+                for a in actions
+            ],
             latency_ms=run.latency_ms,
             status=run.status.value,
             error=run.error,

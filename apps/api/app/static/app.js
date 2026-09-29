@@ -71,6 +71,135 @@ function decisionRows(decisions) {
       );
     })
 
+/* Decision graph.
+   The specification asks for the decision path to be inspectable, so this shows
+   the actual chain: context -> six typed decisions -> the actions they justified.
+   Every value is read from the stored run; nothing here is inferred. */
+
+/* Filtering is client-side over data already fetched, so it stays instant and the
+   stat strip keeps reporting the whole dataset rather than the filtered view. */
+
+let ALL_ROWS = [];
+let ACTIVE_FILTER = "all";
+let QUERY = "";
+
+function matchesFilter(row) {
+  if (ACTIVE_FILTER === "attention") return row.highRisk || row.needsSec;
+  if (ACTIVE_FILTER === "high") return row.highRisk;
+  if (ACTIVE_FILTER === "security") return row.needsSec;
+  if (ACTIVE_FILTER === "failed") return row.failed;
+  return true;
+}
+
+function matchesQuery(row) {
+  if (!QUERY) return true;
+  const haystack = (
+    row.pr.title + " " + row.pr.number + " " + row.pr.author + " " + row.pr.id
+  ).toLowerCase();
+  return haystack.indexOf(QUERY) !== -1;
+}
+
+function visibleRows() {
+  return ALL_ROWS.filter((r) => matchesFilter(r) && matchesQuery(r));
+}
+
+function render() {
+  const rows = visibleRows();
+  const hint = document.getElementById("hint");
+  hint.textContent =
+    rows.length === ALL_ROWS.length
+      ? ""
+      : rows.length + " of " + ALL_ROWS.length + " shown";
+
+  const sections = [
+    ["Needs attention", rows.filter((r) => r.highRisk || r.needsSec), "review"],
+    ["Evaluated", rows.filter((r) => !(r.highRisk || r.needsSec)), ""],
+  ];
+
+  document.getElementById("body").innerHTML = sections.length && rows.length
+    ? sections
+        .filter(([, list]) => list.length)
+        .map(([name, list, tag]) =>
+          '<div class="sec"><h2>' + esc(name) + '</h2><span class="count">' + list.length + "</span>" +
+          (tag ? '<span class="tag">' + esc(tag) + "</span>" : "") + "</div>" +
+          '<div class="grid">' +
+          list.map((r, i) => card(r, i === 0 && r.highRisk)).join("") +
+          "</div>"
+        )
+        .join("")
+    : '<div class="empty"><b>Nothing matches</b>Clear the filter or the search to see the rest.</div>';
+}
+
+function wireFilters() {
+  document.querySelectorAll(".chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
+      chip.setAttribute("aria-pressed", "true");
+      ACTIVE_FILTER = chip.dataset.filter;
+      render();
+    });
+  });
+  const search = document.getElementById("q");
+  if (search) {
+    search.addEventListener("input", (event) => {
+      QUERY = event.target.value.trim().toLowerCase();
+      render();
+    });
+  }
+}
+
+function decisionGraph(row) {
+  const d = row.d;
+  const risk = d.find((x) => x.question_name === "pr_risk");
+  const cat = d.find((x) => x.question_name === "pr_category");
+  const sec = d.find((x) => x.question_name === "pr_security_review");
+  const level = risk ? risk.level : null;
+
+  const contextTone = row.injection ? "bad" : "ok";
+  const contextValue = row.injection
+    ? "untrusted text flagged"
+    : "context hashed · clean";
+
+  const riskTone = level >= 4 ? "bad" : level >= 3 ? "warn" : "ok";
+  const riskValue =
+    level !== null && level !== undefined
+      ? "L" + level + " " + (RISK_LABELS[level] || "")
+      : "not measured";
+
+  const actions = row.actions || [];
+  const actionHtml = actions.length
+    ? actions
+        .map(
+          (a) => '<span class="gact">' + esc(a.action_type) + " · " + esc(a.target) + "</span>"
+        )
+        .join("")
+    : '<span class="gact" style="border-color:#2a323c;background:#12161b;color:#6b7783">no actions justified</span>';
+
+  return (
+    '<div class="graph">' +
+    '<div class="gnode ' + contextTone + '"><div class="gk">context</div><div class="gv">' +
+    esc(contextValue) + "</div></div>" +
+    '<div class="gedge"></div>' +
+    '<div class="gnode"><div class="gk">decisions · 6 typed</div><div class="gv">' +
+    esc(cat ? cat.answer : "—") +
+    " · security " +
+    (sec ? parseFloat(sec.answer).toFixed(2) : "—") +
+    " · testing " +
+    (d.find((x) => x.question_name === "pr_additional_testing")
+      ? parseFloat(d.find((x) => x.question_name === "pr_additional_testing").answer).toFixed(2)
+      : "—") +
+    "</div></div>" +
+    '<div class="gedge"></div>' +
+    '<div class="gnode ' + riskTone + '"><div class="gk">risk</div><div class="gv">' +
+    esc(riskValue) +
+    "</div></div>" +
+    '<div class="gedge"></div>' +
+    '<div class="gnode ' + (actions.length ? "warn" : "ok") + '"><div class="gk">actions</div>' +
+    '<div class="gv" style="margin-top:5px">' + actionHtml + "</div></div>" +
+    "</div>"
+  );
+}
+
 function card(row, expanded) {
   const pr = row.pr;
   const d = row.d;
@@ -101,7 +230,7 @@ function card(row, expanded) {
     '<div class="row1"><span class="repo">#' + pr.number + " · " + esc(pr.author) + "</span></div>" +
     '<div class="title">' + esc(pr.title) + "</div>" +
     '<div class="badges">' + badges.join("") + "</div>" +
-    '<div class="detail">' + decisionRows(d) +
+    '<div class="detail">' + decisionGraph(row) + decisionRows(d) +
     '<div class="meta">' +
     "<span>run #" + d[0].run_id + "</span>" +
     "<span>head " + esc((pr.head_sha || "").slice(0, 7)) + "</span>" +
@@ -151,17 +280,24 @@ async function main() {
       prs.map((p) => get("/api/pull-requests/" + p.id + "/decisions"))
     );
     const details = await Promise.all(prs.map((p) => get("/api/pull-requests/" + p.id)));
+    const graphs = await Promise.all(
+      prs.map((p) => get("/api/pull-requests/" + p.id + "/graph").catch(() => null))
+    );
 
     const rows = prs.map((pr, i) => {
       const d = decisions[i];
       const risk = d.find((x) => x.question_name === "pr_risk");
       const sec = d.find((x) => x.question_name === "pr_security_review");
+      const graph = graphs[i];
       return {
         pr,
         d,
         level: risk ? risk.level : -1,
         highRisk: Boolean(risk && risk.level >= 3),
         needsSec: Boolean(sec && parseFloat(sec.answer) >= 0.5),
+        failed: (details[i].runs || []).some((r) => r.status === "failed"),
+        actions: graph ? graph.actions : [],
+        injection: graph ? (graph.context.injection_flags || []).length > 0 : false,
       };
     });
 
@@ -171,24 +307,12 @@ async function main() {
       decisions: rows.reduce((n, r) => n + r.d.length, 0),
       high_risk: rows.filter((r) => r.highRisk).length,
       security_review: rows.filter((r) => r.needsSec).length,
-      failed: details.filter((x) => (x.runs || []).some((r) => r.status === "failed")).length,
+      failed: rows.filter((r) => r.failed).length,
     });
 
-    const sections = [
-      ["Needs attention", rows.filter((r) => r.highRisk || r.needsSec), "review"],
-      ["Evaluated", rows.filter((r) => !(r.highRisk || r.needsSec)), ""],
-    ];
-
-    body.innerHTML = sections
-      .filter(([, list]) => list.length)
-      .map(([name, list, tag]) =>
-        '<div class="sec"><h2>' + esc(name) + '</h2><span class="count">' + list.length + "</span>" +
-        (tag ? '<span class="tag">' + esc(tag) + "</span>" : "") + "</div>" +
-        '<div class="grid">' +
-        list.map((r, i) => card(r, i === 0 && r.highRisk)).join("") +
-        "</div>"
-      )
-      .join("");
+    ALL_ROWS = rows;
+    wireFilters();
+    render();
   } catch (err) {
     body.innerHTML =
       '<div class="empty"><b>Could not reach the API</b>' + esc(err.message) +

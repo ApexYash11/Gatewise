@@ -339,6 +339,47 @@ async def test_dashboard_does_not_contain_hardcoded_metrics(client):
         assert fabricated not in body.lower()
 
 
+async def test_graph_endpoint_reconstructs_the_decision_path(client):
+    """The decision graph must be reconstructable from stored records alone."""
+    http, _ = client
+    body = make_body()
+    await http.post("/webhooks/github", content=body, headers=headers(body))
+
+    pr_id = (await http.get("/api/pull-requests")).json()[0]["id"]
+    graph = (await http.get(f"/api/pull-requests/{pr_id}/graph")).json()
+
+    assert graph["run"]["status"] == "succeeded"
+    assert graph["run"]["provider"] == "jev"
+    assert graph["run"]["is_official_jev"] is True
+    assert len(graph["decisions"]) == 6
+    assert graph["context"]["state_hash"]
+    # Every decision carries the question version it was produced under.
+    assert all(d["question_version"] == 1 for d in graph["decisions"])
+    # Actions are attached to the run, with their deterministic identity.
+    assert isinstance(graph["actions"], list)
+    for action in graph["actions"]:
+        assert action["fingerprint"]
+        assert action["status"] == "planned"
+
+
+async def test_graph_endpoint_404s_without_a_run(client):
+    http, _ = client
+    assert (await http.get("/api/pull-requests/4242/graph")).status_code == 404
+
+
+async def test_dashboard_fetch_filters_and_search_controls(client):
+    http, _ = client
+    page = (await http.get("/")).text
+    assert 'id="filters"' in page
+    assert 'id="q"' in page
+
+    script = (await http.get("/static/app.js")).text
+    for control in ("all", "attention", "high", "security", "failed"):
+        assert 'data-filter="' + control + '"' in page
+    assert "matchesFilter" in script
+    assert "matchesQuery" in script
+
+
 async def test_unsupported_event_is_ignored_without_evaluating(client):
     http, transport = client
     body = make_body()

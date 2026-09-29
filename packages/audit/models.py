@@ -116,6 +116,11 @@ class DecisionRunRecord(Base):
     is_official_jev: Mapped[bool] = mapped_column(Boolean, default=True)
     state_hash: Mapped[str] = mapped_column(String(64), index=True)
     question_versions: Mapped[list] = mapped_column(JSON, default=list)
+    #: What this run justified, regardless of whether the action was already
+    #: recorded by an earlier run. Kept separate from the ``actions`` rows because
+    #: a replayed or re-evaluated pull request dedupes to the same action, and a
+    #: run that merely re-derived the same verdict must still be able to show why.
+    planned_actions: Mapped[list] = mapped_column(JSON, default=list)
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), index=True)
     error: Mapped[str | None] = mapped_column(Text)
