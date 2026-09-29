@@ -327,6 +327,22 @@ async def test_dashboard_assets_are_served(client):
         assert response.status_code == 200, asset
 
 
+async def test_dashboard_asset_paths_resolve_from_the_root(client):
+    """Regression: the page is served at "/", so asset paths must be absolute.
+
+    A relative "style.css" resolves to "/style.css", which 404s, and the page
+    renders unstyled with no JavaScript. The page looked plain rather than
+    broken, so this only surfaced by opening it in a browser.
+    """
+    http, _ = client
+    page = (await http.get("/")).text
+
+    assert 'href="/static/style.css"' in page
+    assert 'src="/static/app.js"' in page
+    for href in ('href="style.css"', 'src="app.js"'):
+        assert href not in page, f"relative asset path {href} would 404 from /"
+
+
 async def test_dashboard_does_not_contain_hardcoded_metrics(client):
     """The dashboard must read from the API, never ship invented numbers."""
     http, _ = client

@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gatewise — decision index</title>
-<link rel="stylesheet" href="style.css">
+<!-- Absolute paths: this page is served at "/", so a relative "style.css"
+     would resolve to "/style.css", where it does not exist. -->
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <div class="wrap">
@@ -32,6 +34,6 @@
     <span>No estimates: every number here is a stored run.</span>
   </div>
 </div>
-<script src="app.js"></script>
+<script src="/static/app.js"></script>
 </body>
 </html>
