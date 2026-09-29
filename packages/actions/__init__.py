@@ -11,16 +11,35 @@ because Jev is non-deterministic.
 Deliberately excluded for now, pending explicit safeguards: ``merge``,
 ``delete``, ``force_push``, ``release`` and ``deployment``.
 
-Executing actions against the GitHub API is not implemented: it needs a GitHub App
-installation token. A plan is produced and recorded first, so the decision-to-action
-link is auditable even before execution exists.
+Executing actions is :class:`actions.executor.GitHubActionExecutor`, which
+performs only the four allowlisted types and refuses ``merge``, ``delete``,
+``force_push``, ``release`` and ``deployment`` by construction.
+
+One deliberate behaviour: the planner emits a sentinel reviewer target rather than
+a username, because choosing *who* reviews is a policy question the model is not
+asked. The executor skips it rather than guessing, so Gatewise never invents a
+reviewer.
 """
 
+from .executor import (
+    ALLOWED_ACTIONS,
+    FORBIDDEN_ACTIONS,
+    ActionError,
+    ActionNotPermitted,
+    ActionResult,
+    GitHubActionExecutor,
+)
 from .pipeline import DecisionPipeline, EvaluationRun, RunStatus, hash_state
 
 __all__ = [
+    "ALLOWED_ACTIONS",
+    "FORBIDDEN_ACTIONS",
+    "ActionError",
+    "ActionNotPermitted",
+    "ActionResult",
     "DecisionPipeline",
     "EvaluationRun",
+    "GitHubActionExecutor",
     "RunStatus",
     "hash_state",
 ]
