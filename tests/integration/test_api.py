@@ -288,7 +288,7 @@ async def test_internal_evaluate_returns_decisions_without_a_webhook(client):
     assert len(transport.requests) == 1
 
 
-async def test_provider_failure_returns_failed_not_a_decision(client, tmp_path):
+async def test_provider_failure_returns_failed_not_a_decision(client):
     """A 500 from the provider must surface as failure, never as low risk."""
     http, _ = client
     state = http._transport.app.state.gatewise
@@ -308,6 +308,35 @@ async def test_provider_failure_returns_failed_not_a_decision(client, tmp_path):
     runs = (await http.get(f"/api/pull-requests/{prs[0]['id']}")).json()["runs"]
     assert runs[0]["status"] == "failed"
     assert "boom" in runs[0]["error"]
+
+
+async def test_dashboard_is_served(client):
+    http, _ = client
+    response = await http.get("/")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "Gate" in response.text
+    assert "decision index" in response.text
+
+
+async def test_dashboard_assets_are_served(client):
+    http, _ = client
+    for asset in ("/static/style.css", "/static/app.js"):
+        response = await http.get(asset)
+        assert response.status_code == 200, asset
+
+
+async def test_dashboard_does_not_contain_hardcoded_metrics(client):
+    """The dashboard must read from the API, never ship invented numbers."""
+    http, _ = client
+    body = (await http.get("/static/app.js")).text
+
+    assert "/api/pull-requests" in body
+    # No evaluations are baked into the front end.
+    assert "No evaluations yet" in body
+    for fabricated in ("hardcoded", "sample", "demo data"):
+        assert fabricated not in body.lower()
 
 
 async def test_unsupported_event_is_ignored_without_evaluating(client):

@@ -23,9 +23,11 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from actions.pipeline import DecisionPipeline
@@ -47,6 +49,10 @@ from .schemas import (
 from .service import GatewiseService
 
 __all__ = ["create_app", "app"]
+
+#: Dashboard assets, served from the same origin as the API.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+
 
 
 class AppState:
@@ -280,6 +286,21 @@ def create_app() -> FastAPI:
             "decisions": _decisions_to_dicts(run.answers),
             "actions": service._pipeline.plan_actions(run),  # noqa: SLF001
         }
+
+    @app.get("/", include_in_schema=False)
+    async def dashboard() -> FileResponse:
+        """Serve the decision index.
+
+        The dashboard reads only what the API actually recorded. An empty
+        database renders "No evaluations yet" rather than placeholder metrics.
+        """
+        return FileResponse(STATIC_DIR / "index.html")
+
+    app.mount(
+        "/static",
+        StaticFiles(directory=str(STATIC_DIR)),
+        name="static",
+    )
 
     return app
 
