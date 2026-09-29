@@ -12,9 +12,11 @@ Security properties enforced here:
 - :func:`github.dedup.action_fingerprint` gives every action a deterministic
   identity, so a repeat is detectable even when the delivery ID differs.
 
-The pull request diff is *not* part of the webhook payload. Fetching it requires an
-authenticated API call, which is deliberately not implemented yet: it would need a
-GitHub App installation token, and the MVP works without it.
+The pull request diff is *not* part of the webhook payload, because GitHub sends a
+file *count* rather than a list. :mod:`github.fetch` closes that gap for on-demand
+reviews by calling the files endpoint and folding the names into
+``changed_files_list`` before parsing, so a manually reviewed pull request is
+described to the model exactly as a webhook-delivered one is.
 """
 
 from .dedup import DeliveryDeduplicator, action_fingerprint
@@ -23,6 +25,13 @@ from .events import (
     PullRequestEvent,
     WebhookParseError,
     parse_pull_request_event,
+)
+from .fetch import (
+    MAX_FILES,
+    PullRequestFetchError,
+    build_webhook_payload,
+    fetch_pull_request,
+    validate_repository,
 )
 from .security import (
     DELIVERY_ID_HEADER,
@@ -36,14 +45,19 @@ from .security import (
 __all__ = [
     "DELIVERY_ID_HEADER",
     "EVENT_HEADER",
+    "MAX_FILES",
     "SIGNATURE_HEADER",
     "SUPPORTED_ACTIONS",
     "DeliveryDeduplicator",
     "PullRequestEvent",
+    "PullRequestFetchError",
     "SignatureError",
     "WebhookParseError",
     "action_fingerprint",
+    "build_webhook_payload",
     "compute_signature",
+    "fetch_pull_request",
     "parse_pull_request_event",
+    "validate_repository",
     "verify_signature",
 ]

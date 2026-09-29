@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     github_app_id: str | None = None
     github_private_key: str | None = None
     github_webhook_secret: str | None = None
+    #: Fine-grained token used to *read* a pull request on demand and to perform
+    #: actions. Optional: public repositories can be reviewed unauthenticated, and
+    #: the product never requires write access to produce a decision.
+    github_token: str | None = None
 
     # --- Storage ------------------------------------------------------------ #
     database_url: str = "sqlite+aiosqlite:///./gatewise.db"
@@ -60,6 +64,7 @@ class Settings(BaseSettings):
         "openrouter_api_key",
         "github_private_key",
         "github_webhook_secret",
+        "github_token",
     )
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:

@@ -100,7 +100,7 @@ If both are set, the direct TypeSafe key wins. The key is never committed, never
 logged, and never sent to the model.
 
 ```bash
-pytest                                  # 212 tests, no network access required
+pytest                                  # 247 tests, no network access required
 python scripts/serve.py                 # API + dashboard on http://127.0.0.1:8000
 python scripts/smoke_jev.py             # one real call: context -> six decisions
 python scripts/smoke_pipeline.py        # full pipeline, real model, action plan
@@ -159,8 +159,15 @@ python -m uvicorn app.main:app --port 8000
 
 ### Filling the dashboard
 
-An empty database renders *"No evaluations yet"* by design. To populate it with
-real decisions from real pull requests:
+An empty database renders *"No evaluations yet"* by design. There are two ways to
+populate it, both with real decisions from real pull requests.
+
+**From the browser.** The dashboard has a review form: enter `owner/name` and a
+pull request number, and it fetches that pull request from GitHub, asks Jev the six
+questions, and files the result in the index. This is the quickest path and needs
+no terminal.
+
+**From the terminal**, which additionally applies the actions:
 
 ```bash
 .venv\Scripts\python scripts\seed_dashboard.py     # six public PRs
@@ -171,15 +178,20 @@ real decisions from real pull requests:
 applies the actions it justified. Fetch is unauthenticated for public
 repositories; only the labelling step needs `GITHUB_TOKEN`.
 
+Set `GITHUB_TOKEN` to review private repositories or to avoid GitHub's
+unauthenticated rate limit. The browser form only ever *plans* actions; it never
+writes to GitHub, so a click in a page cannot modify a repository.
+
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /` | The dashboard. |
+| `GET /` | The dashboard, with the review form. |
 | `GET /api/health` | Configuration state. Never calls the model. |
 | `GET /api/pull-requests` | Evaluated pull requests, newest first. |
 | `GET /api/pull-requests/{id}` | One pull request with its runs. |
 | `GET /api/pull-requests/{id}/decisions` | Decisions for the latest run. |
 | `GET /api/pull-requests/{id}/graph` | The decision path, for the graph view. |
 | `GET /api/decisions` | Recent decisions across all pull requests. |
+| `POST /api/reviews` | Fetch, evaluate, and record a real pull request now. |
 | `POST /webhooks/github` | Signed pull request delivery. |
 | `POST /internal/decisions/evaluate` | Ad-hoc evaluation without a webhook. |
 | `GET /docs` | Interactive OpenAPI documentation. |

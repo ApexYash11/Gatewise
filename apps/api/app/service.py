@@ -25,9 +25,11 @@ from audit import AuditStore
 from context.builder import build_context
 from github import (
     DeliveryDeduplicator,
+    PullRequestEvent,
     SignatureError,
     WebhookParseError,
     compute_signature,
+    fetch_pull_request,
     parse_pull_request_event,
     verify_signature,
 )
@@ -42,6 +44,14 @@ class WebhookOutcome:
     run: EvaluationRun | None = None
     actions: list[dict[str, Any]] | None = None
     injection_flags: list[str] | None = None
+    #: The event that produced this outcome, when there was one. Carried on the
+    #: result rather than stashed on shared state, so two concurrent reviews cannot
+    #: read each other's pull request.
+    event: PullRequestEvent | None = None
+    #: The primary key of the stored run. ``EvaluationRun`` is the in-memory result
+    #: and has no id of its own; the audit store assigns one on insert, so this can
+    #: only be known after recording.
+    run_id: int | None = None
 
     @property
     def http_status(self) -> int:
@@ -66,6 +76,61 @@ class GatewiseService:
         self._pipeline = pipeline
         self._store = store
         self._dedup = dedup or DeliveryDeduplicator()
+
+    async def review_pull_request(
+        self, repository: str, number: int, *, token: str | None = None
+    ) -> WebhookOutcome:
+        """Fetch a pull request on demand and evaluate it.
+
+        This is the manual counterpart to :meth:`handle_delivery`, and it exists so
+        the dashboard can drive a real review. It deliberately reuses the same
+        evaluate-then-record sequence rather than calling the model directly, so a
+        run created from the UI is indistinguishable from one created by a webhook:
+        same context builder, same question versions, same audit rows, same action
+        plan. A separate path would let the dashboard record verdicts that the
+        product's own ingestion path could not justify.
+
+        Actions are *planned*, not performed. Executing them needs a token and is a
+        separate, explicit step, so a click in a browser can never write to GitHub
+        by accident.
+        """
+        event = await fetch_pull_request(repository, number, token=token)
+
+        context = build_context(
+            number=event.number,
+            title=event.title,
+            description=event.description,
+            author=event.author,
+            base_branch=event.base_branch,
+            head_branch=event.head_branch,
+            labels=event.labels,
+            changed_files=event.changed_files,
+            draft=event.draft,
+        )
+
+        run = await self._pipeline.evaluate(event, context)
+        actions = self._pipeline.plan_actions(run)
+        record = await self._store.record_run(event, run, actions)
+
+        if not run.succeeded:
+            return WebhookOutcome(
+                status="failed",
+                detail=run.error or "evaluation failed",
+                run=run,
+                actions=actions,
+                injection_flags=run.injection_flags,
+                event=event,
+                run_id=record.id,
+            )
+        return WebhookOutcome(
+            status="accepted",
+            detail="evaluated",
+            run=run,
+            actions=actions,
+            injection_flags=run.injection_flags,
+            event=event,
+            run_id=record.id,
+        )
 
     async def handle_delivery(
         self,

@@ -383,6 +383,329 @@ async def test_graph_endpoint_404s_without_a_run(client):
     assert (await http.get("/api/pull-requests/4242/graph")).status_code == 404
 
 
+def _strip_js_noise(source: str) -> str:
+    """Remove comments, string literals and regex literals from JavaScript.
+
+    A brace counter is only meaningful if braces inside literals are ignored,
+    otherwise a ``"}"`` in a CSS colour would look like unbalanced code.
+
+    Regex literals must be skipped too, and that is the subtle part: the escape
+    helper ``/[&<>"']/g`` contains an apostrophe, so treating quotes as string
+    delimiters makes the scanner believe a string opened there and it swallows
+    the rest of the file. A ``/`` therefore only starts a regex when the previous
+    significant character cannot end an expression.
+    """
+    out: list[str] = []
+    i, n = 0, len(source)
+    # Characters after which a "/" is division; anywhere else it opens a regex.
+    after_value = set(")]}") | set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$")
+
+    def last_significant() -> str:
+        for ch in reversed(out):
+            if not ch.isspace():
+                return ch
+        return ""
+
+    while i < n:
+        ch = source[i]
+        nxt = source[i + 1] if i + 1 < n else ""
+        if ch == "/" and nxt == "/":
+            while i < n and source[i] != "\n":
+                i += 1
+        elif ch == "/" and nxt == "*":
+            i += 2
+            while i + 1 < n and not (source[i] == "*" and source[i + 1] == "/"):
+                i += 1
+            i += 2
+        elif ch == "/" and last_significant() not in after_value:
+            # Regex literal: skip to its unescaped closing slash, then any flags.
+            i += 1
+            in_class = False
+            while i < n:
+                if source[i] == "\\":
+                    i += 2
+                    continue
+                if source[i] == "[":
+                    in_class = True
+                elif source[i] == "]":
+                    in_class = False
+                elif source[i] == "/" and not in_class:
+                    i += 1
+                    break
+                i += 1
+            while i < n and source[i].isalpha():
+                i += 1
+        elif ch in "\"'`":
+            quote = ch
+            i += 1
+            while i < n and source[i] != quote:
+                i += 2 if source[i] == "\\" else 1
+            i += 1
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+GITHUB_PR = {
+    "number": 7,
+    "title": "Harden the webhook verifier",
+    "body": "Adds constant-time comparison and a replay window.",
+    "user": {"login": "octocat"},
+    "base": {"ref": "main", "repo": {"full_name": "octo/repo"}},
+    "head": {"ref": "fix/verify", "sha": "deadbeef"},
+    "labels": [{"name": "security"}],
+    "draft": False,
+}
+
+
+def _stub_github(monkeypatch, *, files=None, pr=None):
+    """Replace the GitHub fetch with a canned pull request.
+
+    Only the *network boundary* is stubbed. The payload is fed through the real
+    payload builder and the real event parser, so the parsing, context building,
+    evaluation, and recording under test are the production ones. Stubbing
+    ``fetch_pull_request`` itself would skip exactly the step these tests exist to
+    cover.
+    """
+    import app.service as service_module
+
+    pull_request = pr or GITHUB_PR
+    changed = files if files is not None else [
+        {"filename": "packages/github/security.py", "additions": 12, "deletions": 3}
+    ]
+
+    async def fake_fetch(repository, number, *, token=None, client=None):
+        from github import build_webhook_payload, parse_pull_request_event
+        from github.events import PullRequestEvent
+
+        payload = dict(pull_request)
+        payload["number"] = number
+        parsed = parse_pull_request_event(
+            build_webhook_payload(payload, changed), event="pull_request"
+        )
+        return PullRequestEvent(
+            delivery_id=None,
+            action=parsed.action,
+            repository=parsed.repository,
+            number=parsed.number,
+            title=parsed.title,
+            description=parsed.description,
+            author=parsed.author,
+            base_branch=parsed.base_branch,
+            head_branch=parsed.head_branch,
+            labels=parsed.labels,
+            changed_files=tuple(
+                str(f["filename"]) for f in changed if f.get("filename")
+            ),
+            draft=parsed.draft,
+            head_sha=parsed.head_sha,
+            raw=parsed.raw,
+        )
+
+    monkeypatch.setattr(service_module, "fetch_pull_request", fake_fetch)
+
+
+async def test_review_endpoint_records_and_returns_decisions(client, monkeypatch):
+    """The dashboard form must produce a real, auditable run.
+
+    Only the GitHub *network* is stubbed; the decision still comes from the stubbed
+    provider through the real pipeline, so this asserts the whole manual path works
+    end to end rather than that a route returns a shape.
+    """
+    http, _ = client
+    _stub_github(monkeypatch)
+
+    response = await http.post(
+        "/api/reviews", json={"repository": "octo/repo", "number": 7}
+    )
+
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["status"] == "accepted"
+    assert result["repository"] == "octo/repo"
+    assert result["number"] == 7
+    assert result["title"] == "Harden the webhook verifier"
+    assert result["run_id"] is not None
+    assert len(result["decisions"]) == 6
+
+    # The whole point of routing through the service: the run is persisted, so the
+    # review shows up in the index instead of existing only in the response.
+    prs = (await http.get("/api/pull-requests")).json()
+    assert [p["number"] for p in prs] == [7]
+    stored = (await http.get(f"/api/pull-requests/{prs[0]['id']}/decisions")).json()
+    assert len(stored) == 6
+
+
+async def test_review_endpoint_carries_changed_files_into_the_decision(client, monkeypatch):
+    """Changed files must survive the fetch, or every PR looks like it touches none.
+
+    GitHub's webhook carries a file *count*, not names, so this is the step where
+    the files endpoint is folded in. If it regressed, the file-category questions
+    would be asked against an empty list and every verdict would be quietly wrong.
+    """
+    http, _ = client
+    _stub_github(monkeypatch, files=[{"filename": "packages/github/security.py"}])
+
+    result = (
+        await http.post("/api/reviews", json={"repository": "octo/repo", "number": 7})
+    ).json()
+
+    assert result["status"] == "accepted"
+    # The run's context hash is derived from the files, so a run recorded with the
+    # file present differs from one recorded without it.
+    assert result["state_hash"]
+
+
+async def test_review_endpoint_rejects_a_malformed_repository(client, monkeypatch):
+    """The repository is interpolated into a URL, so it is validated first.
+
+    This is the boundary that stops the review form being used as a request proxy
+    against hosts other than GitHub.
+    """
+    http, _ = client
+    _stub_github(monkeypatch)
+
+    for bad in ("octo/repo/../../etc", "octo", "oct o/repo", "http://evil.test/x"):
+        response = await http.post(
+            "/api/reviews", json={"repository": bad, "number": 7}
+        )
+        assert response.status_code in (400, 422), (bad, response.status_code)
+
+
+async def test_review_endpoint_validates_the_pull_request_number(client, monkeypatch):
+    http, _ = client
+    _stub_github(monkeypatch)
+
+    for bad in (0, -1, "seven", None):
+        response = await http.post(
+            "/api/reviews", json={"repository": "octo/repo", "number": bad}
+        )
+        assert response.status_code == 422, (bad, response.status_code)
+
+
+async def test_review_endpoint_reports_a_failed_run_without_inventing_decisions(
+    client, monkeypatch
+):
+    """A provider outage must surface as a failure, not as an empty verdict.
+
+    The provider is made to fail, which is the real outage shape. The endpoint must
+    still return 200 with a ``failed`` status and no decisions, because the run was
+    recorded with its error. Returning invented decisions, or a 500, would both be
+    wrong: the first breaks the product's core promise, and the second hides a
+    recorded failure behind a transport error.
+    """
+    http, transport = client
+    _stub_github(monkeypatch)
+
+    # Break the provider at the network boundary, where a real outage shows up.
+    transport.status_code = 500
+    transport.payload = {"error": "upstream unavailable"}
+
+    result = (
+        await http.post("/api/reviews", json={"repository": "octo/repo", "number": 7})
+    ).json()
+
+    assert result["status"] == "failed", result
+    assert result["decisions"] == []
+    assert result["detail"]
+
+
+async def test_dashboard_exposes_the_review_form(client):
+    """The form and its handler are the feature; assert both are wired up."""
+    http, _ = client
+    page = (await http.get("/")).text
+    assert 'id="review-form"' in page
+    assert 'id="repo"' in page
+    assert 'id="prnum"' in page
+    assert 'id="review-out"' in page
+
+    script = (await http.get("/static/app.js")).text
+    assert "/api/reviews" in script
+    assert "wireReviewForm" in script
+
+
+async def test_dashboard_script_is_syntactically_balanced(client):
+    """Regression: app.js must be parseable JavaScript, not just served.
+
+    A truncated or mis-merged ``app.js`` still returns HTTP 200 and still contains
+    every string the other dashboard tests grep for, so those tests all passed
+    while the page rendered an empty index stuck on "connecting...". The browser
+    was the only thing that noticed. Braces, parens and brackets are checked
+    outside of strings and comments, which is enough to catch the real failure
+    mode: a function body that lost its closing brace.
+    """
+    http, _ = client
+    code = _strip_js_noise((await http.get("/static/app.js")).text)
+
+    for opener, closer in (("{", "}"), ("(", ")"), ("[", "]")):
+        assert code.count(opener) == code.count(closer), (
+            f"app.js has unbalanced {opener}{closer}: "
+            f"{code.count(opener)} open vs {code.count(closer)} close"
+        )
+
+
+async def test_dashboard_script_closes_every_function_declaration(client):
+    """Each ``function foo() {`` must have a matching ``}`` before the next one.
+
+    Counting braces alone would not catch a body that closes early and leaves a
+    dangling ``.join("")``; walking the declarations in order does.
+    """
+    http, _ = client
+    code = _strip_js_noise((await http.get("/static/app.js")).text)
+
+    depth = 0
+    for index, char in enumerate(code):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            assert depth >= 0, f"unbalanced closing brace at offset {index}"
+    assert depth == 0, f"app.js ends with {depth} unclosed block(s)"
+
+    # A function body must not be left open at the end of the module either.
+    for name in ("decisionRows", "decisionGraph", "card", "render", "main"):
+        assert f"function {name}(" in code, f"{name} is missing from app.js"
+
+
+async def test_dashboard_script_declares_no_orphan_statements(client):
+    """A merged file can leave stray fragments at module scope.
+
+    The broken build ended with a bare ``.join("");`` and ``}`` after the event
+    listeners, which is a syntax error at module scope.
+
+    Only statement positions are checked. A line that merely *continues* an
+    expression can legitimately start with ``)`` or ``}``, so tracking whether
+    the previous token could end a statement is what separates a real orphan
+    from ordinary wrapped code.
+    """
+    http, _ = client
+    code = _strip_js_noise((await http.get("/static/app.js")).text)
+
+    depth = 0
+    at_statement_start = True
+    for number, line in enumerate(code.split("\n"), start=1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if at_statement_start and stripped[0] in ".)]}":
+            raise AssertionError(
+                f"app.js line {number} starts a statement with {stripped[0]!r}, "
+                f"which indicates an orphaned fragment: {stripped[:60]!r}"
+            )
+        for char in stripped:
+            if char in "{([":
+                depth += 1
+            elif char in "})]":
+                depth -= 1
+            if depth == 0 and char in ";{}":
+                at_statement_start = True
+            elif not char.isspace():
+                at_statement_start = False
+
+    assert depth == 0, f"app.js ends with {depth} unclosed delimiter(s)"
+
+
 async def test_dashboard_fetch_filters_and_search_controls(client):
     http, _ = client
     page = (await http.get("/")).text

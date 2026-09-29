@@ -219,6 +219,73 @@ code {
 .search::placeholder { color: var(--ink-faint); }
 .hint { color: var(--ink-faint); font-size: 12.5px; padding: 10px 0 0; font-family: var(--mono); }
 
+/* ---- on-demand review ----
+   Sits between the hero and the figures because it is the way a reader creates
+   the data below it. Kept in the same paper-and-hairline language as the rest:
+   this should read as a form in a catalogue, not a console widget. */
+.review {
+  margin: 30px 0 34px; padding: 22px 24px 20px;
+  border: 1px solid var(--rule); background: var(--surface); border-radius: 4px;
+}
+.review-head h2 { font-family: var(--serif); font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+.review-head p { margin: 0 0 16px; color: var(--ink-dim); font-size: 13.5px; max-width: 62ch; }
+
+.review-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 220px; }
+.field.field-num { flex: 0 0 120px; min-width: 110px; }
+.field > span {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.13em;
+  font-weight: 600; color: var(--ink-faint);
+}
+.field input {
+  font: inherit; font-size: 13.5px; padding: 9px 12px; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 4px;
+  font-family: var(--mono);
+}
+.field input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.review-form button {
+  font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  padding: 10px 22px; border-radius: 4px; border: 1px solid var(--accent);
+  background: var(--accent); color: #fbfaf7; letter-spacing: 0.01em;
+}
+.review-form button:hover:not(:disabled) { background: #27503f; }
+.review-form button:disabled { opacity: 0.55; cursor: progress; }
+
+/* Result panel. Tones are load-bearing: a failed review must not look like a
+   successful one with no rows, which is the failure mode this product exists to
+   avoid. */
+.review-out {
+  margin-top: 18px; padding: 15px 17px; border-radius: 4px;
+  border: 1px solid var(--rule); background: var(--paper);
+  border-left-width: 3px;
+}
+.review-out.is-ok { border-left-color: var(--accent); }
+.review-out.is-bad { border-left-color: var(--rust); background: var(--rust-soft); }
+.review-out.is-busy { border-left-color: var(--amber); }
+.rv-head { font-size: 13.5px; color: var(--ink); margin-bottom: 3px; }
+.rv-head b { font-family: var(--serif); font-size: 15px; }
+.rv-detail { font-size: 13px; color: var(--ink-dim); }
+.review-out.is-bad .rv-detail { color: var(--rust); }
+.rv-meta, .rv-foot { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); margin-top: 6px; }
+.rv-warn { font-size: 12px; color: var(--amber); margin-top: 6px; }
+.rv-dec { margin-top: 12px; border-top: 1px solid var(--rule-soft); padding-top: 10px; }
+.rv-row {
+  display: grid; grid-template-columns: 190px 1fr 92px; gap: 12px;
+  align-items: center; padding: 4px 0;
+}
+.rv-q { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); }
+.rv-v { font-family: var(--mono); font-size: 12px; text-align: right; color: var(--ink); }
+.rv-acts { margin-top: 10px; }
+
+/* Status pill tones. The dot reports configuration, not reachability, so it never
+   turns red for a model outage -- that is surfaced by a failed run instead. */
+.live.is-ok i { background: var(--accent); }
+.live.is-warn i { background: var(--amber); }
+.live.is-warn { border-color: #e4d6bb; color: var(--amber); }
+
+/* ---- empty state ---- */
+.empty-go { margin-top: 10px; font-size: 13px; color: var(--accent); }
+
 .foot {
   margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--ink);
   color: var(--ink-faint); font-size: 12px; display: flex; gap: 24px; flex-wrap: wrap;

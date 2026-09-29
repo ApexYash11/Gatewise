@@ -97,3 +97,56 @@ class EvaluateRequest(BaseModel):
     head_branch: str = "feature"
     labels: list[str] = Field(default_factory=list)
     changed_files: list[str] = Field(default_factory=list)
+
+
+class ReviewRequest(BaseModel):
+    """Body for an on-demand review of a real pull request.
+
+    ``number`` is bounded at the edge so a nonsense value is rejected with a clear
+    message instead of becoming a GitHub URL that 404s.
+    """
+
+    repository: str = Field(
+        ...,
+        description="owner/name, for example ApexYash11/Gatewise",
+        min_length=3,
+        max_length=201,
+    )
+    number: int = Field(..., ge=1, le=1_000_000, description="pull request number")
+
+
+class DecisionResult(BaseModel):
+    """One decision, shaped for display rather than for storage.
+
+    The interpolated score and the resolved level are both returned because policy
+    routes on the level while a reader wants the number; collapsing them would
+    force one of those audiences to lose information.
+    """
+
+    question: str
+    type: str
+    #: A ``noul`` answer arrives as a number and a ``choice`` answer as a string, so
+    #: this is deliberately wider than ``str``. Coercing the noul to text here would
+    #: throw away the numeric value the bar chart and thresholds are computed from.
+    answer: str | float
+    level: int | None = None
+    label: str | None = None
+    confidence: float | None = None
+
+
+class ReviewResponse(BaseModel):
+    """The outcome of one on-demand review."""
+
+    status: str
+    detail: str
+    run_id: int | None = None
+    repository: str
+    number: int
+    title: str = ""
+    author: str = ""
+    state_hash: str | None = None
+    latency_ms: int | None = None
+    question_versions: list[str] = Field(default_factory=list)
+    injection_flags: list[str] = Field(default_factory=list)
+    decisions: list[DecisionResult] = Field(default_factory=list)
+    actions: list[dict[str, Any]] = Field(default_factory=list)

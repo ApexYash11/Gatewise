@@ -36,13 +36,21 @@ from config import Settings
 from context import build_context
 from decisions.jev import JevDecisionProvider
 from decisions.registry import load_registry
-from github import DeliveryDeduplicator, parse_pull_request_event
+from github import (
+    DeliveryDeduplicator,
+    PullRequestFetchError,
+    parse_pull_request_event,
+    validate_repository,
+)
 
 from .schemas import (
+    DecisionResult,
     DecisionView,
     EvaluateRequest,
     HealthView,
     PullRequestSummary,
+    ReviewRequest,
+    ReviewResponse,
     RunView,
     WebhookAccepted,
 )
@@ -337,6 +345,69 @@ def create_app() -> FastAPI:
             "decisions": _decisions_to_dicts(run.answers),
             "actions": service._pipeline.plan_actions(run),  # noqa: SLF001
         }
+
+    @app.post("/api/reviews", response_model=ReviewResponse, tags=["data"])
+    async def review_pull_request(
+        payload: ReviewRequest, session: AsyncSession = Depends(get_session)
+    ) -> ReviewResponse:
+        """Review a real pull request now, without waiting for a webhook.
+
+        This is what the dashboard's review form calls. It fetches the pull request
+        from GitHub, evaluates it with the real model, and records the run, so the
+        result is auditable and immediately visible in the index.
+
+        Actions are planned but not performed: writing to GitHub stays a separate,
+        token-gated step, so a browser click can never mutate a repository.
+        """
+        # Validated at the edge as well as inside the fetch. The repository is
+        # interpolated into a GitHub URL, so this is a trust boundary: relying on the
+        # fetcher to reject it means any alternative fetch implementation silently
+        # removes the check.
+        try:
+            repository = validate_repository(payload.repository)
+        except PullRequestFetchError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        service = state.service(session)
+        try:
+            outcome = await service.review_pull_request(
+                repository,
+                payload.number,
+                token=state.settings.github_token,
+            )
+        except PullRequestFetchError as exc:
+            # A bad repository, a missing pull request, or a rate limit is a client
+            # problem with a specific remedy, so it is reported as 400 rather than
+            # a generic 500.
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        run = outcome.run
+        if run is None:
+            return ReviewResponse(
+                status=outcome.status,
+                detail=outcome.detail,
+                repository=payload.repository,
+                number=payload.number,
+            )
+
+        event = outcome.event
+        return ReviewResponse(
+            status=outcome.status,
+            detail=outcome.detail,
+            run_id=outcome.run_id,
+            repository=event.repository if event else payload.repository,
+            number=event.number if event else payload.number,
+            title=event.title if event else "",
+            author=event.author if event else "",
+            state_hash=run.state_hash,
+            latency_ms=run.latency_ms,
+            question_versions=list(run.question_versions or []),
+            injection_flags=list(outcome.injection_flags or []),
+            decisions=[
+                DecisionResult(**item) for item in _decisions_to_dicts(run.answers)
+            ],
+            actions=outcome.actions or [],
+        )
 
     @app.get("/", include_in_schema=False)
     async def dashboard() -> FileResponse:

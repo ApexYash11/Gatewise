@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gatewise — decision index</title>
+<title>GateWise — decision index</title>
+<meta name="description" content="Every pull request, read by a decision model. Typed questions, one call, a verdict you can inspect.">
 <!-- Absolute paths: this page is served at "/", so a relative "style.css"
      would resolve to "/style.css", where it does not exist. -->
 <link rel="stylesheet" href="/static/style.css">
@@ -11,10 +12,10 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Gate<span class="dot">.</span>wise</h1>
+    <h1>Gate<span class="dot">W</span>ise</h1>
     <span class="sub">Decision index</span>
     <span class="spacer"></span>
-    <span class="live"><i></i><span id="prov">connecting…</span></span>
+    <span class="live" id="live"><i></i><span id="prov">connecting&hellip;</span></span>
   </header>
 
   <section class="hero">
@@ -22,6 +23,29 @@
     <p>Six typed questions, one call, a verdict you can inspect. Nothing here is
     estimated &mdash; each entry is a stored run of TypeSafe&rsquo;s Jev, with the
     question version it was asked under.</p>
+  </section>
+
+  <!-- On-demand review. Posts to /api/reviews, which fetches the real pull
+       request, evaluates it, and records the run before responding. -->
+  <section class="review" aria-labelledby="review-h">
+    <div class="review-head">
+      <h2 id="review-h">Review a pull request</h2>
+      <p>Fetches the real pull request from GitHub, asks Jev the six questions, and
+      files the result in the index below.</p>
+    </div>
+    <form class="review-form" id="review-form">
+      <label class="field">
+        <span>Repository</span>
+        <input id="repo" name="repository" type="text" placeholder="ApexYash11/Gatewise"
+               autocomplete="off" spellcheck="false" required>
+      </label>
+      <label class="field field-num">
+        <span>Pull request</span>
+        <input id="prnum" name="number" type="number" min="1" step="1" placeholder="1" required>
+      </label>
+      <button type="submit" id="review-go">Review</button>
+    </form>
+    <div class="review-out" id="review-out" hidden></div>
   </section>
 
   <div class="stats" id="stats"></div>
