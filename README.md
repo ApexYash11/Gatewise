@@ -9,15 +9,15 @@ answers, and lets application policy decide what to do with them.
 
 > **Status: pre-MVP.** The decision layer, versioned question registry,
 > untrusted-input boundary, GitHub webhook verification, the decision pipeline,
-> persistence, and the HTTP API are implemented and tested (158 tests).
-> Action *execution* against GitHub, the dashboard, and the evaluation harness are
-> not built yet.
+> persistence, the HTTP API, and the evaluation harness are implemented and tested
+> (188 tests). Action *execution* against GitHub and the dashboard are not built
+> yet.
 >
-> **Live API status: working.** Gatewise serves real calls to TypeSafe's Jev
-> model via OpenRouter and records real typed decisions. See
-> [docs/architecture/jev-contract.md](docs/architecture/jev-contract.md) for a
-> sample run. No code in this repository simulates or substitutes for that
-> response.
+> **Live API status: blocked on credentials.** Gatewise previously made real calls
+> to TypeSafe's Jev via OpenRouter and recorded real typed decisions; the
+> configured key has since expired (`401 API key expired`). Set
+> `OPENROUTER_API_KEY` or `TYPESAFE_API_KEY` to resume. No code in this repository
+> simulates or substitutes for a model response.
 
 ## Why this exists
 
@@ -100,11 +100,23 @@ If both are set, the direct TypeSafe key wins. The key is never committed, never
 logged, and never sent to the model.
 
 ```bash
-pytest                                  # 158 tests, no network access required
+pytest                                  # 188 tests, no network access required
 python scripts/smoke_jev.py             # one real call: context -> six decisions
 python scripts/smoke_pipeline.py        # full pipeline, real model, action plan
+python scripts/smoke_persist.py         # context -> model -> SQLite, read back
+python scripts/run_benchmark.py         # evaluation harness over a labelled dataset
 python scripts/diagnose_jev.py          # print the resolved credential source
 ```
+
+## Evaluation
+
+The harness scores a provider against labelled pull requests and reports
+accuracy, precision, recall, F1, false positive/negative rates, Brier score,
+latency, tokens, and cost. See [docs/evaluation/README.md](docs/evaluation/README.md).
+
+The bundled dataset uses **assistant-assessed** labels and is a smoke test for the
+harness, not evidence about decision quality. A human-labelled dataset of at least
+30 cases is still needed before any accuracy claim is meaningful.
 
 `smoke_jev.py` exits `0` on success, `2` when no key is configured, and `3` when
 the decision is unavailable (for example, insufficient credits).
@@ -153,12 +165,16 @@ packages/config/      Environment configuration and secret handling
 packages/github/      Webhook signature verification, deduplication, event parsing
 packages/actions/     Decision pipeline and deterministic action planning
 packages/audit/       SQLAlchemy models and the audit store
+packages/evaluation/  Dataset loading with enforced provenance, metrics, runner
 apps/api/             FastAPI service: webhook receiver and read endpoints
-tests/unit/           Schemas, registry, configuration, webhook security, dedup
+benchmarks/           Seed benchmark dataset (assistant-assessed labels)
+tests/unit/           Schemas, registry, configuration, webhook security, dedup,
+                      metrics, dataset, evaluation runner
 tests/integration/    Provider, pipeline, webhook flow, persistence, HTTP API
 tests/adversarial/    Prompt-injection and untrusted-input cases
 docs/architecture/    Overview and the verified Jev API contract
 docs/decisions/       Architectural decision records
+docs/evaluation/      How the harness scores and what the dataset can support
 ```
 
 ## Research question

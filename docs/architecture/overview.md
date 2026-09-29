@@ -135,26 +135,31 @@ decision.
 
 ## Status
 
-Implemented and tested (158 tests):
+Implemented and tested (188 tests):
 
 - typed decision schemas matching the verified Jev contract;
-- the provider abstraction and the real Jev provider, **verified against the live
-  API**;
+- the provider abstraction and the real Jev provider, verified against the live
+  API;
 - the versioned question registry and the six MVP pull request decisions;
 - the context builder and untrusted-input boundary;
 - GitHub webhook signature verification, delivery deduplication, and event parsing;
 - the decision pipeline and deterministic action planning;
 - the audit store, so a run is reconstructable with its question versions;
-- the HTTP API: webhook receiver, read endpoints, and health.
+- the HTTP API: webhook receiver, read endpoints, and health;
+- the evaluation harness: metrics, a provider-agnostic runner, and failure
+  accounting.
 
 Not yet implemented: action *execution* against the GitHub API (needs a GitHub App
-installation token), the dashboard, and the evaluation harness.
+installation token) and the dashboard. A human-labelled benchmark dataset is also
+still missing, so no accuracy claim is made.
 
-Two live runs are reproducible:
+Live runs, reproducible:
 
 ```bash
 python scripts/smoke_persist.py                    # context -> Jev -> SQLite, read back
 python scripts/smoke_pipeline.py                   # full pipeline incl. action plan
+python scripts/run_benchmark.py                    # evaluation harness
 ```
 
-Nothing in this repository substitutes a simulated decision for a real one.
+These currently need a valid decision-model credential. Nothing in this
+repository substitutes a simulated decision for a real one.
