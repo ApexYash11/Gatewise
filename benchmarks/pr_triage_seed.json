@@ -1,0 +1,89 @@
+{
+  "name": "pr-triage-seed",
+  "version": 1,
+  "description": "Seed benchmark for pull request triage. Small and explicitly NOT human-validated: the labels below were produced by the assistant reasoning over each pull request's own title, description and changed files. They exist to smoke-test the harness end to end and to show what a report looks like. They must not be cited as human-validated accuracy, and any claim about decision quality needs a human-labelled dataset of at least 30 cases, per the specification. The `label_source` field carries this provenance into every report.",
+  "cases": [
+    {
+      "id": "kev-172",
+      "repository": "jaredpalmer/kev",
+      "number": 172,
+      "title": "fix(serve): probe cuda usability and add --device flag",
+      "description": "Adds a device probe so serve refuses to start on an unsupported GPU rather than failing later at inference time.",
+      "author": "lab1207",
+      "changed_files": ["kev/device.py", "kev/serve.py", "tests/test_device.py"],
+      "label_source": "assistant",
+      "labels": {
+        "pr_category": "bug",
+        "pr_risk": 1,
+        "pr_breaking_change": 0,
+        "pr_security_review": 0,
+        "pr_maintainer_review": 0,
+        "pr_additional_testing": 0
+      },
+      "notes": "Narrow bug fix with tests. Low blast radius; no trust boundary touched."
+    },
+    {
+      "id": "kev-166",
+      "repository": "jaredpalmer/kev",
+      "number": 166,
+      "title": "Reuse growing conversation prefixes on the MLX backend",
+      "description": "Caches and reuses an increasing conversation prefix across prefill passes on Apple Silicon.",
+      "author": "adam-r-kowalski",
+      "changed_files": [
+        "kev/mlx_model.py",
+        "kev/model.py",
+        "kev/serve.py",
+        "tests/test_api.py",
+        "README.md"
+      ],
+      "label_source": "assistant",
+      "labels": {
+        "pr_category": "infrastructure",
+        "pr_risk": 3,
+        "pr_breaking_change": 1,
+        "pr_security_review": 0,
+        "pr_maintainer_review": 1,
+        "pr_additional_testing": 1
+      },
+      "notes": "Changes core inference behaviour. Prefix reuse can silently change output, so a maintainer should review and extra testing is warranted."
+    },
+    {
+      "id": "awesome-25",
+      "repository": "walidboulanouar/awesome-jev-use-cases",
+      "number": 25,
+      "title": "Add jev-engineering (Claude Code tool-call gate with auto mode)",
+      "description": "Adds one entry to Open source -> Coding agents and developer tools. Disclosure: I built and maintain this project.",
+      "author": "eugeniughelbur",
+      "changed_files": ["README.md"],
+      "label_source": "assistant",
+      "labels": {
+        "pr_category": "documentation",
+        "pr_risk": 0,
+        "pr_breaking_change": 0,
+        "pr_security_review": 0,
+        "pr_maintainer_review": 0,
+        "pr_additional_testing": 0
+      },
+      "notes": "Single added README line. Self-submitted entry with a disclosure. Nothing in the repository changes behaviour."
+    },
+    {
+      "id": "awesome-24",
+      "repository": "walidboulanouar/awesome-jev-use-cases",
+      "number": 24,
+      "title": "Add OneJev",
+      "description": "Adds OneJev to Open models and alternatives. It is an open multimodal System One model that answers Choice, Score and Noul questions about screenshots, photos, video and text.",
+      "author": "unikcc",
+      "changed_files": ["README.md"],
+      "label_source": "assistant",
+      "labels": {
+        "pr_category": "documentation",
+        "pr_risk": 1,
+        "pr_breaking_change": 0,
+        "pr_security_review": 0,
+        "pr_maintainer_review": 0,
+        "pr_additional_testing": 0
+      },
+      "notes": "Documentation, but claims a third-party model and links to external weights, so a maintainer should confirm the links resolve."
+    }
+  ]
+}

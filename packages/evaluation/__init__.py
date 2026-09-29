@@ -1,12 +1,43 @@
-"""Evaluation and benchmarking.
+"""Evaluation harness: score decision providers against labelled data.
 
-Not yet implemented. Will run a manually validated dataset of historical
-open-source pull requests through one or more decision providers and report
-accuracy, precision, recall, F1, false positive rate, false negative rate,
-latency, token usage and estimated cost.
+The purpose is measurement, not marketing. A claim that one provider is better
+than another requires running both over the same dataset with the same questions
+and reporting the numbers, including the failures.
 
-The purpose is comparison and measurement. No claim that one provider is better
-than another may be made without measured evidence on a stated dataset.
+Three properties make the numbers trustworthy:
+
+- **Provider-agnostic.** The runner depends only on ``DecisionProvider``, so
+  comparing providers compares providers rather than two different harnesses.
+- **Provenance travels with the results.** Every dataset reports who produced its
+  labels, and a dataset of assistant-assessed labels is never presented as
+  human-validated accuracy.
+- **Failures are counted.** A provider that declines hard cases cannot improve its
+  reported accuracy by declining them, because the failure count sits beside the
+  accuracy in the same summary.
 """
 
-__all__: list[str] = []
+from .dataset import Case, Dataset, DatasetError, LabelSource, load_dataset
+from .metrics import (
+    DEFAULT_TOLERANCE,
+    BinaryCounts,
+    EvaluationReport,
+    brier_score,
+    mean_absolute_error,
+)
+from .runner import DEFAULT_THRESHOLD, compare, run_dataset
+
+__all__ = [
+    "DEFAULT_THRESHOLD",
+    "DEFAULT_TOLERANCE",
+    "BinaryCounts",
+    "Case",
+    "Dataset",
+    "DatasetError",
+    "EvaluationReport",
+    "LabelSource",
+    "brier_score",
+    "compare",
+    "load_dataset",
+    "mean_absolute_error",
+    "run_dataset",
+]
