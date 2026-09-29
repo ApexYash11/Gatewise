@@ -31,6 +31,9 @@ __all__ = ["create_app"]
 class PullRequestSummary(BaseModel):
     id: int
     repository_id: int
+    #: ``owner/name``, so the dashboard can show which repository a verdict came
+    #: from without a second request per entry.
+    repository: str = ""
     number: int
     title: str
     author: str

@@ -201,16 +201,25 @@ class AuditStore:
 
     async def list_pull_requests(
         self, *, repository: str | None = None, limit: int = 50
-    ) -> list[PullRequestRecord]:
-        """List pull requests, newest first, optionally filtered by repository."""
-        query = select(PullRequestRecord).order_by(PullRequestRecord.id.desc()).limit(limit)
+    ) -> list[tuple[PullRequestRecord, Repository]]:
+        """List pull requests with their repository, newest first.
+
+        The repository is joined explicitly rather than read through the ORM
+        relationship: lazy loading outside a greenlet context raises
+        MissingGreenlet under asyncio, so the join is the correct approach rather
+        than a workaround.
+        """
+        query = (
+            select(PullRequestRecord, Repository)
+            .join(Repository, PullRequestRecord.repository_id == Repository.id)
+            .order_by(PullRequestRecord.id.desc())
+            .limit(limit)
+        )
         if repository:
             owner, _, name = repository.partition("/")
-            query = (
-                query.join(Repository)
-                .where(Repository.owner == owner, Repository.name == name)
-            )
-        return list(await self._session.scalars(query))
+            query = query.where(Repository.owner == owner, Repository.name == name)
+        rows = await self._session.execute(query)
+        return [(record, repo) for record, repo in rows.all()]
 
     async def get_pull_request(self, pull_request_id: int) -> PullRequestRecord | None:
         return await self._session.get(PullRequestRecord, pull_request_id)

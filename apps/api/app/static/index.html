@@ -12,26 +12,36 @@
 <div class="wrap">
   <header>
     <h1>Gate<span class="dot">.</span>wise</h1>
-    <span class="sub">typed decision index</span>
+    <span class="sub">Decision index</span>
     <span class="spacer"></span>
     <span class="live"><i></i><span id="prov">connecting…</span></span>
   </header>
 
+  <section class="hero">
+    <h2>Every pull request, read by a decision model.</h2>
+    <p>Six typed questions, one call, a verdict you can inspect. Nothing here is
+    estimated &mdash; each entry is a stored run of TypeSafe&rsquo;s Jev, with the
+    question version it was asked under.</p>
+  </section>
+
   <div class="stats" id="stats"></div>
+
   <div class="filters" id="filters">
     <span class="chip" data-filter="all" aria-pressed="true">all</span>
     <span class="chip" data-filter="attention" aria-pressed="false">needs attention</span>
     <span class="chip" data-filter="high" aria-pressed="false">high risk</span>
     <span class="chip" data-filter="security" aria-pressed="false">security</span>
     <span class="chip" data-filter="failed" aria-pressed="false">failed</span>
-    <input class="search" id="q" type="search" placeholder="filter by title, number or author…" autocomplete="off">
+    <input class="search" id="q" type="search" placeholder="Filter by title, number or author…" autocomplete="off">
   </div>
   <div class="hint" id="hint"></div>
   <div id="body"><div class="empty">Loading decisions…</div></div>
 
   <div class="foot">
-    <span>Decisions from TypeSafe Jev.</span>
-    <span>No estimates: every number here is a stored run.</span>
+    <span>Decisions by TypeSafe Jev.</span>
+    <a href="/docs">API</a>
+    <a href="/api/decisions">Raw records</a>
+    <a href="/api/health">Status</a>
   </div>
 </div>
 <script src="/static/app.js"></script>

@@ -228,8 +228,11 @@ async def test_reevaluating_unchanged_pr_does_not_violate_fingerprint(store):
 
     listed = await audit.list_pull_requests()
     assert len(listed) == 1
-    assert listed[0].number == 5215
-    assert listed[0].title == "Upgrade the ingress controller"
+    record, repo = listed[0]
+    assert record.number == 5215
+    assert record.title == "Upgrade the ingress controller"
+    # The repository is joined, so the dashboard can attribute a verdict to it.
+    assert f"{repo.owner}/{repo.name}" == "octo/repo"
 
     assert len(await audit.list_pull_requests(repository="octo/repo")) == 1
     assert await audit.list_pull_requests(repository="other/repo") == []
@@ -247,4 +250,4 @@ async def test_repeat_event_updates_rather_than_duplicating_the_pr(store):
 
     listed = await audit.list_pull_requests()
     assert len(listed) == 1, "same PR number must not create a second record"
-    assert listed[0].title == "Updated title"
+    assert listed[0][0].title == "Updated title"

@@ -187,18 +187,21 @@ def create_app() -> FastAPI:
         """List evaluated pull requests, newest first. Empty when none exist."""
         store = AuditStore(session)
         records = await store.list_pull_requests(repository=repository, limit=limit)
-        return [
-            PullRequestSummary(
-                id=record.id,
-                repository_id=record.repository_id,
-                number=record.number,
-                title=record.title,
-                author=record.author,
-                status=record.status,
-                head_sha=record.head_sha,
+        summaries = []
+        for record, repo in records:
+            summaries.append(
+                PullRequestSummary(
+                    id=record.id,
+                    repository_id=record.repository_id,
+                    repository=f"{repo.owner}/{repo.name}",
+                    number=record.number,
+                    title=record.title,
+                    author=record.author,
+                    status=record.status,
+                    head_sha=record.head_sha,
+                )
             )
-            for record in records
-        ]
+        return summaries
 
     @app.get("/api/pull-requests/{pull_request_id}", tags=["data"])
     async def get_pull_request(

@@ -224,17 +224,19 @@ function card(row, expanded) {
   );
 
   return (
-    '<article class="card" aria-expanded="' +
-    (expanded ? "true" : "false") +
-    '" tabindex="0">' +
-    '<div class="row1"><span class="repo">#' + pr.number + " · " + esc(pr.author) + "</span></div>" +
-    '<div class="title">' + esc(pr.title) + "</div>" +
+    '<article class="card" aria-expanded="' + (expanded ? "true" : "false") + '" tabindex="0">' +
+    '<div class="ref"><b>#' + pr.number + "</b>" + esc(pr.author) + "</div>" +
+    '<div class="mid">' +
+    '<h3 class="title">' + esc(pr.title) + "</h3>" +
+    '<div class="meta-line">' + esc(pr.repository || "repository") + " &middot; head " +
+    esc((pr.head_sha || "").slice(0, 7) || "unknown") + "</div>" +
     '<div class="badges">' + badges.join("") + "</div>" +
+    "</div>" +
+    "<div></div>" +
     '<div class="detail">' + decisionGraph(row) + decisionRows(d) +
     '<div class="meta">' +
     "<span>run #" + d[0].run_id + "</span>" +
-    "<span>head " + esc((pr.head_sha || "").slice(0, 7)) + "</span>" +
-    "<span>" + esc(pr.status) + "</span>" +
+    "<span>status " + esc(pr.status) + "</span>" +
     "</div></div></article>"
   );
 }
