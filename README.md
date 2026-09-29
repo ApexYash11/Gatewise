@@ -100,10 +100,14 @@ If both are set, the direct TypeSafe key wins. The key is never committed, never
 logged, and never sent to the model.
 
 ```bash
-pytest                                  # 188 tests, no network access required
+pytest                                  # 212 tests, no network access required
+python scripts/serve.py                 # API + dashboard on http://127.0.0.1:8000
 python scripts/smoke_jev.py             # one real call: context -> six decisions
 python scripts/smoke_pipeline.py        # full pipeline, real model, action plan
 python scripts/smoke_persist.py         # context -> model -> SQLite, read back
+python scripts/seed_dashboard.py        # evaluate real PRs to fill the dashboard
+python scripts/review_pr.py owner/name 1 # evaluate one real PR and label it
+python scripts/compare_providers.py     # compare providers over a dataset
 python scripts/run_benchmark.py         # evaluation harness over a labelled dataset
 python scripts/diagnose_jev.py          # print the resolved credential source
 ```
@@ -125,36 +129,60 @@ The test suite stubs only the HTTP transport. It never simulates model judgement
 
 ## Running the API
 
-```bash
-# Required
-set TYPESAFE_API_KEY=sk-...            # or OPENROUTER_API_KEY for the same Jev model
-set GITHUB_WEBHOOK_SECRET=...          # the webhook receives signed deliveries only
-set DATABASE_URL=sqlite+aiosqlite:///./gatewise.db
+One command. It loads `.env`, creates the database if missing, and serves the API
+and dashboard together:
 
+```bash
+.venv\Scripts\python scripts\serve.py
+```
+
+Then open **http://127.0.0.1:8000**
+
+Add `--open` to launch a browser, `--reload` for development.
+
+The script checks configuration before starting and names any missing variable.
+That matters because the failure mode is otherwise confusing: without a key the
+server still starts and answers every request, but evaluations return `503
+decision provider is not configured` and the dashboard stays empty.
+
+### Manual invocation
+
+If you prefer to run uvicorn directly:
+
+```bash
+set OPENROUTER_API_KEY=sk-...        # or TYPESAFE_API_KEY
+set GITHUB_WEBHOOK_SECRET=...         # required for webhook deliveries
+set DATABASE_URL=sqlite+aiosqlite:///./gatewise.db
 set PYTHONPATH=packages;apps/api
 python -m uvicorn app.main:app --port 8000
 ```
 
-Interactive API docs are then at <http://localhost:8000/docs>.
+### Filling the dashboard
+
+An empty database renders *"No evaluations yet"* by design. To populate it with
+real decisions from real pull requests:
+
+```bash
+.venv\Scripts\python scripts\seed_dashboard.py     # six public PRs
+.venv\Scripts\python scripts\review_pr.py ApexYash11/Gatewise 1
+```
+
+`review_pr.py` fetches a real pull request, evaluates it, records the run, and
+applies the actions it justified. Fetch is unauthenticated for public
+repositories; only the labelling step needs `GITHUB_TOKEN`.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `POST /webhooks/github` | Signed pull request delivery. Verifies the signature before parsing. |
-| `GET /api/health` | Configuration state only. Never calls the model. |
+| `GET /` | The dashboard. |
+| `GET /api/health` | Configuration state. Never calls the model. |
 | `GET /api/pull-requests` | Evaluated pull requests, newest first. |
 | `GET /api/pull-requests/{id}` | One pull request with its runs. |
-| `GET /api/pull-requests/{id}/decisions` | Decisions for the latest run, with question versions. |
+| `GET /api/pull-requests/{id}/decisions` | Decisions for the latest run. |
+| `GET /api/pull-requests/{id}/graph` | The decision path, for the graph view. |
 | `GET /api/decisions` | Recent decisions across all pull requests. |
+| `POST /webhooks/github` | Signed pull request delivery. |
 | `POST /internal/decisions/evaluate` | Ad-hoc evaluation without a webhook. |
-
-Try it end to end against a running server:
-
-```bash
-set GITHUB_WEBHOOK_SECRET=...
-python scripts/send_test_webhook.py http://127.0.0.1:8000
-```
-
-The script signs the payload, so the server performs a genuine signature check.
+| `GET /docs` | Interactive OpenAPI documentation. |
 
 ## Repository layout
 
