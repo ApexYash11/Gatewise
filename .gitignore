@@ -36,3 +36,4 @@ htmlcov/
 .DS_Store
 node_modules/
 .next/
+_*.out
