@@ -37,3 +37,16 @@ htmlcov/
 node_modules/
 .next/
 _*.out
+# Agent worktrees: local scratch checkouts that must never be committed.
+.kilo/
+.kilocode/
+
+# Demo media. The scripts in scripts/ generate all of this locally from the
+# running app, so the repository ships the tooling rather than the binaries and
+# none of it is committed. Regenerate with scripts/record_demo.py (a screen
+# recording) or scripts/capture_demo.py + make_demo_video.py (still frames).
+demo/*.png
+demo/*.jpg
+demo/*.mp4
+demo/_frames.txt
+demo/_recording/
