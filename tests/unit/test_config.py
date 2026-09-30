@@ -7,6 +7,26 @@ import pytest
 from config import Settings
 
 
+@pytest.fixture(autouse=True)
+def _isolated_from_real_credentials(monkeypatch, tmp_path):
+    """Keep every test in this module independent of real credentials.
+
+    Two sources have to be neutralised, not one. The obvious case is an exported
+    environment variable, but ``Settings`` also reads a ``.env`` file relative to
+    the working directory. A developer who has followed the setup instructions
+    therefore has a real key on disk, and any assertion of the form "no key
+    configured" fails -- so the suite only passed on a machine that had never run
+    the product. The working directory is moved to an empty temporary one, which
+    removes the file source for every test here without repeating the setup.
+
+    A real credential must never be loaded by a unit test, let alone asserted
+    against, so this is isolation rather than convenience.
+    """
+    for name in ("TYPESAFE_API_KEY", "JEV_API_KEY", "OPENROUTER_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.chdir(tmp_path)
+
+
 def _clear_keys(monkeypatch):
     """Isolate tests from any real keys present in the ambient environment."""
     for name in ("TYPESAFE_API_KEY", "JEV_API_KEY", "OPENROUTER_API_KEY"):

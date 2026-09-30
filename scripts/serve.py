@@ -23,7 +23,36 @@ sys.path.insert(0, str(ROOT / "apps" / "api"))
 
 from dotenv import load_dotenv  # noqa: E402
 
+# ``override`` stays False on purpose: a variable already exported into the
+# environment is a deliberate deployment choice and should win over a local file.
+# The consequence is that a *stale* exported key silently shadows a rotated one in
+# .env, which is exactly the failure this function reports below.
 load_dotenv(ROOT / ".env")
+
+
+def shadowed_keys() -> list[str]:
+    """Names set in the environment that differ from the value in ``.env``.
+
+    A rotated credential is the common case: the new key is written to ``.env``
+    but an old copy is still exported in the shell, and because ``load_dotenv``
+    does not override, the server keeps using the old one and reports a
+    confusing provider error (expired key, no credits) rather than a config
+    mistake. Surfacing the conflict at startup turns that into one clear line.
+    """
+    if not (ROOT / ".env").exists():
+        return []
+    import os
+
+    from dotenv import dotenv_values
+
+    conflicts = []
+    for name, file_value in dotenv_values(ROOT / ".env").items():
+        if file_value is None:
+            continue
+        env_value = os.environ.get(name)
+        if env_value and env_value != file_value:
+            conflicts.append(name)
+    return conflicts
 
 
 def preflight() -> list[str]:
@@ -33,6 +62,12 @@ def preflight() -> list[str]:
     with a 503 and no explanation of why.
     """
     problems: list[str] = []
+    for name in shadowed_keys():
+        problems.append(
+            f"{name} is set in your shell and differs from .env. The exported value "
+            "wins, so the server is not using the key in .env. If you just rotated "
+            f"this credential, clear it with: setx {name} \"\"  and reopen the shell."
+        )
     if not (os.environ.get("TYPESAFE_API_KEY") or os.environ.get("OPENROUTER_API_KEY")):
         problems.append(
             "No decision-model key. Set TYPESAFE_API_KEY (or OPENROUTER_API_KEY) "
