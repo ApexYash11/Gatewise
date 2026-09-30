@@ -128,7 +128,7 @@ class DecisionPipeline:
         Routing is deliberately coarse and expressed in terms of levels and
         probability bands, never exact floats: Jev is not deterministic, so a
         threshold such as ``score > 2.07`` would behave inconsistently between
-        runs. See docs/architecture/jev-contract.md.
+        runs.
 
         Returns an empty list for a failed run. A missing decision authorizes
         nothing.

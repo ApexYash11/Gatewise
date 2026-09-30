@@ -1,8 +1,7 @@
 """The real TypeSafe AI Jev decision provider.
 
 Every field used here was read from the installed ``typesafe_sdk`` package rather
-than assumed. See docs/architecture/jev-contract.md for the verified contract and
-the provenance of each claim.
+than assumed. They were not taken from marketing copy or third-party posts.
 
 Network access is confined to :meth:`JevDecisionProvider.evaluate`, so tests can
 mock the socket (via the SDK's ``transport`` hook) and assert on request

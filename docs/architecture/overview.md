@@ -34,8 +34,8 @@ packages/
 ├── config/        Environment configuration and secret handling
 ├── github/        Webhook signature verification, deduplication, event parsing
 ├── actions/       Decision pipeline and deterministic action planning
-├── audit/         (Phase 2) decision and action audit store
-└── evaluation/    (Phase 2) benchmark harness and provider comparison
+├── audit/         Decision and run audit store
+└── evaluation/    Benchmark harness and provider comparison
 ```
 
 The dependency rule: everything above `decisions` depends on the abstract
@@ -122,8 +122,9 @@ The ordering is a security property, not a style choice:
   handled. Other events are skipped rather than treated as errors, because GitHub
   sends many.
 
-Action planning uses levels and probability bands, never exact floats — see
-[jev-contract.md](jev-contract.md) for why the model is non-deterministic.
+Action planning uses levels and probability bands, never exact floats: the
+model is non-deterministic, so an exact threshold would behave inconsistently
+between runs.
 
 ## Failure handling
 
@@ -135,7 +136,7 @@ decision.
 
 ## Status
 
-Implemented and tested (188 tests):
+Implemented and tested (248 tests):
 
 - typed decision schemas matching the verified Jev contract;
 - the provider abstraction and the real Jev provider, verified against the live
@@ -149,9 +150,12 @@ Implemented and tested (188 tests):
 - the evaluation harness: metrics, a provider-agnostic runner, and failure
   accounting.
 
-Not yet implemented: action *execution* against the GitHub API (needs a GitHub App
-installation token) and the dashboard. A human-labelled benchmark dataset is also
-still missing, so no accuracy claim is made.
+Also implemented: the dashboard (index, filters, decision graph, and an
+on-demand review form), and action *execution* against the GitHub API
+(`scripts/apply_action.py`, `scripts/review_pr.py`) behind an explicit
+`GITHUB_TOKEN` — the product never needs write access to produce a decision.
+A human-labelled benchmark dataset is still missing, so no accuracy claim is
+made.
 
 Live runs, reproducible:
 

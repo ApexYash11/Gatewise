@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     )
 
     # --- Decision provider -------------------------------------------------- #
-    # Two ways to reach the *same* real Jev model. See docs/architecture/jev-contract.md.
+    # Two ways to reach the *same* real Jev model.
     typesafe_api_key: str | None = Field(
         default=None,
         validation_alias=AliasChoices("TYPESAFE_API_KEY", "JEV_API_KEY"),
@@ -55,9 +55,6 @@ class Settings(BaseSettings):
     # --- Storage ------------------------------------------------------------ #
     database_url: str = "sqlite+aiosqlite:///./gatewise.db"
     redis_url: str | None = None
-
-    # --- Dashboard ---------------------------------------------------------- #
-    next_public_api_url: str = "http://localhost:8000"
 
     @field_validator(
         "typesafe_api_key",

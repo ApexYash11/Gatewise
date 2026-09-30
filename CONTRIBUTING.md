@@ -51,7 +51,7 @@ there are many unrelated ones. Verify against, in order of preference:
 3. A live request, once an API key is available.
 
 When you verify a contract, record it in
-`docs/architecture/jev-contract.md` with its provenance and date.
+the provider module docstring, with its provenance and date.
 
 ## Testing
 
@@ -72,7 +72,7 @@ network error, malformed response, and missing answer.
 ## Style
 
 - Small, focused commits with working tests.
-- Document architectural decisions in `docs/decisions/` when a choice is
+- Document architectural decisions in the module docstring when a choice is
   non-obvious or constrains future work.
 - Prefer simple, observable, reproducible code over premature abstraction.
 - Do not claim functionality that has not been tested. If something is unverified,

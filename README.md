@@ -7,17 +7,17 @@ Gatewise sits between AI coding agents / GitHub events and engineering actions. 
 extracts a compact context from a pull request, asks a real decision model for typed
 answers, and lets application policy decide what to do with them.
 
-> **Status: pre-MVP.** The decision layer, versioned question registry,
+> **Status: working.** The decision layer, versioned question registry,
 > untrusted-input boundary, GitHub webhook verification, the decision pipeline,
-> persistence, the HTTP API, and the evaluation harness are implemented and tested
-> (188 tests). Action *execution* against GitHub and the dashboard are not built
-> yet.
+> persistence, the HTTP API, the dashboard, and the evaluation harness are all
+> implemented and tested (**248 tests**, no network access required). Actions are
+> *planned* on every path; *executing* them against GitHub is a separate, explicit
+> step that requires a token, so a decision never mutates a repository on its own.
 >
-> **Live API status: blocked on credentials.** Gatewise previously made real calls
-> to TypeSafe's Jev via OpenRouter and recorded real typed decisions; the
-> configured key has since expired (`401 API key expired`). Set
-> `OPENROUTER_API_KEY` or `TYPESAFE_API_KEY` to resume. No code in this repository
-> simulates or substitutes for a model response.
+> **Live model: working.** Real calls to TypeSafe's Jev via OpenRouter return
+> real typed decisions, and every run is stored with the question version it was
+> asked under. No code in this repository simulates or substitutes for a model
+> response — if the model is unavailable the run fails and is recorded as failed.
 
 ## Why this exists
 
@@ -41,7 +41,7 @@ Three rules follow from that, and they shape the whole codebase:
 ```
 GitHub Event
      ↓
-Webhook (signature verified, deduplicated)      [not yet built]
+Webhook (signature verified, deduplicated)
      ↓
 Context Builder  ── isolates untrusted text
      ↓
@@ -49,9 +49,9 @@ DecisionProvider ── JevDecisionProvider
      ↓
 Decision Registry ── versioned questions
      ↓
-Action Router                                      [not yet built]
+Action Router     ── plans actions; execution is a separate, explicit step
      ↓
-Audit Store                                        [not yet built]
+Audit Store       ── run, decisions, and planned actions are persisted
 ```
 
 See [docs/architecture/overview.md](docs/architecture/overview.md).
@@ -100,7 +100,7 @@ If both are set, the direct TypeSafe key wins. The key is never committed, never
 logged, and never sent to the model.
 
 ```bash
-pytest                                  # 247 tests, no network access required
+pytest                                  # 248 tests, no network access required
 python scripts/serve.py                 # API + dashboard on http://127.0.0.1:8000
 python scripts/smoke_jev.py             # one real call: context -> six decisions
 python scripts/smoke_pipeline.py        # full pipeline, real model, action plan
@@ -116,7 +116,7 @@ python scripts/diagnose_jev.py          # print the resolved credential source
 
 The harness scores a provider against labelled pull requests and reports
 accuracy, precision, recall, F1, false positive/negative rates, Brier score,
-latency, tokens, and cost. See [docs/evaluation/README.md](docs/evaluation/README.md).
+latency, tokens, and cost.
 
 The bundled dataset uses **assistant-assessed** labels and is a smoke test for the
 harness, not evidence about decision quality. A human-labelled dataset of at least
@@ -196,6 +196,41 @@ writes to GitHub, so a click in a page cannot modify a repository.
 | `POST /internal/decisions/evaluate` | Ad-hoc evaluation without a webhook. |
 | `GET /docs` | Interactive OpenAPI documentation. |
 
+### Recording a demo
+
+`scripts/record_demo.py` records a live walkthrough to `demo/gatewise-demo.mp4`.
+It drives the real dashboard in a real browser — clicks the filter chips,
+expands a decision graph, then submits the review form — so the panel at the end
+is whatever the live model returned for that pull request. Nothing is scripted
+for the camera, and console errors, page errors, and failed requests are
+collected and reported rather than silently filed as a good take.
+
+```bash
+python scripts/serve.py                          # terminal one
+.venv\Scripts\python scripts\record_demo.py      # terminal two
+```
+
+`scripts/capture_demo.py` and `scripts/make_demo_video.py` are the short-cut
+alternative: they capture four real UI states, then export an ~11-second,
+16:9 video with a restrained push-in on each scene. Use it when you need
+individual frames or a compact clip without recording a live model wait.
+To render the video without ffmpeg, run `node scripts/render_demo_video.mjs`;
+it records the same captures through installed Chrome or Edge and adds subtle
+scene labels and crossfades.
+
+Both need `playwright` and its Chromium build
+(`pip install playwright && playwright install chromium`), and ffmpeg
+(`winget install --id Gyan.FFmpeg -e`). ffmpeg is looked up on PATH and then in
+the winget package directory, because a winget install does not always add it
+to PATH.
+
+All four are presentation tooling and sit outside the test suite: they require
+a live server, network access, and paid model calls, so `pytest` never depends
+on them.
+
+The generated media is not committed (`demo/` is gitignored), so this repository
+ships the tooling rather than the binaries. Re-record after changing the UI.
+
 ## Repository layout
 
 ```
@@ -212,9 +247,7 @@ tests/unit/           Schemas, registry, configuration, webhook security, dedup,
                       metrics, dataset, evaluation runner
 tests/integration/    Provider, pipeline, webhook flow, persistence, HTTP API
 tests/adversarial/    Prompt-injection and untrusted-input cases
-docs/architecture/    Overview and the verified Jev API contract
-docs/decisions/       Architectural decision records
-docs/evaluation/      How the harness scores and what the dataset can support
+docs/architecture/    Overview of the system and its package layout
 ```
 
 ## Research question
@@ -223,8 +256,10 @@ docs/evaluation/      How the harness scores and what the dataset can support
 > software engineering workflows?
 
 This is an experiment, and it is measured rather than asserted. The evaluation
-framework and benchmark dataset are specified but not yet built; no accuracy or
-cost claim is made here, because none has been measured.
+harness and a four-case seed dataset are implemented and tested, but the seed
+labels are **assistant-assessed**, not human-assessed — so they exercise the
+machinery rather than establish decision quality. No accuracy or cost claim is
+made here, because none has been measured against a human-labelled dataset.
 
 ## License
 

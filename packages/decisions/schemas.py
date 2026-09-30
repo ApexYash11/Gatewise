@@ -1,6 +1,6 @@
 """Typed decision schemas for Gatewise.
 
-These mirror the *verified* TypeSafe AI Jev contract (see docs/architecture/jev-contract.md):
+These mirror the *verified* TypeSafe AI Jev contract:
 
     POST https://api.typesafe.ai/v1/systemone
     -> { "state": <json>, "questions": { <name>: <question> } }
@@ -8,8 +8,7 @@ These mirror the *verified* TypeSafe AI Jev contract (see docs/architecture/jev-
 
 Question types are exactly three: ``noul``, ``choice`` and ``score``.
 
-Two contract details drive this module and are documented in
-docs/architecture/jev-contract.md:
+Two contract details drive this module:
 
 1. ``ScoreAnswer`` returns a *probability-weighted expected score* which may fall
    between integer levels (e.g. ``1.84`` on a 3-level rubric). We keep BOTH the
