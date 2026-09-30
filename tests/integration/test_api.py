@@ -8,6 +8,7 @@ these run offline and need no credentials.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -704,6 +705,45 @@ async def test_dashboard_script_declares_no_orphan_statements(client):
                 at_statement_start = False
 
     assert depth == 0, f"app.js ends with {depth} unclosed delimiter(s)"
+
+
+async def test_dashboard_modifier_classes_do_not_collide_with_page_classes(client):
+    """A compound class in markup must not also be a standalone rule in the CSS.
+
+    The security badge shipped as ``class="b sec"``. ``.sec`` is the section-header
+    rule (``margin: 44px 0 12px; display: flex``), so the badge inherited it and the
+    badge row grew to 79px tall to accommodate one child's stray margin. Nothing
+    about the badge markup looked wrong, so it survived review and only showed up
+    in a screenshot.
+
+    The base class of a compound is allowed to have a bare rule -- that is how
+    ``.b`` styles every badge. It is the *modifiers* that must stay unambiguous,
+    so each modifier used in app.js is checked against the standalone selectors.
+    """
+    http, _ = client
+    # Deliberately *not* _strip_js_noise: that helper deletes string literals, and
+    # the markup lives inside them, so the check would silently pass on nothing.
+    script = (await http.get("/static/app.js")).text
+    stylesheet = (await http.get("/static/style.css")).text
+
+    # Standalone selectors only: `.sec` collides, `.b.sec` and `.sec .count` do not.
+    bare_classes = {
+        selector.lstrip(".")
+        for selector in re.findall(r"^\s*(\.[A-Za-z][\w-]*)\s*\{", stylesheet, re.MULTILINE)
+    }
+
+    collisions = []
+    for attribute in re.findall(r'class="([^"]+)"', script):
+        parts = attribute.split()
+        if len(parts) < 2:
+            continue  # a single class is the base case, not a modifier list
+        for modifier in parts[1:]:
+            if modifier in bare_classes:
+                collisions.append(f"{attribute!r}: .{modifier} is also a standalone rule")
+
+    assert not collisions, "modifier classes collide with standalone CSS rules: " + "; ".join(
+        collisions
+    )
 
 
 async def test_dashboard_fetch_filters_and_search_controls(client):

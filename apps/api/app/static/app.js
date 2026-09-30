@@ -220,7 +220,7 @@ function card(row, expanded) {
     );
   }
   if (sec && parseFloat(sec.answer) >= 0.5) {
-    badges.push('<span class="b sec">security review</span>');
+    badges.push('<span class="b security">security review</span>');
   }
   badges.push(
     '<span class="b ' + (pr.status === "failed" ? "fail" : "ok") + '">' + esc(pr.status) + "</span>"
@@ -235,7 +235,6 @@ function card(row, expanded) {
     esc((pr.head_sha || "").slice(0, 7) || "unknown") + "</div>" +
     '<div class="badges">' + badges.join("") + "</div>" +
     "</div>" +
-    "<div></div>" +
     '<div class="detail">' + decisionGraph(row) + decisionRows(d) +
     '<div class="meta">' +
     "<span>run #" + d[0].run_id + "</span>" +
@@ -301,7 +300,7 @@ function renderReviewResult(result) {
                 : (d.confidence || 0) * 100;
           const value =
             d.type === "score" && d.level !== null && d.level !== undefined
-              ? "L" + d.level + (d.label ? " " + d.label : "")
+              ? "L" + d.level + (d.label ? " " + shortLabel(d.label) : "")
               : d.type === "noul"
                 ? parseFloat(d.answer).toFixed(2)
                 : d.answer;
@@ -404,6 +403,17 @@ function wireReviewForm() {
       button.textContent = "Review";
     }
   });
+}
+
+/* The API returns a score legend as a full sentence per level ("Moderate. Real
+   behavioural change affecting known consumers."). That is the right text for a
+   rubric and the wrong text for a narrow value column, where it wraps to five
+   lines and pushes the whole row out of shape. Only the leading label is shown
+   here; the full legend stays available on the card and in the API response. */
+function shortLabel(text) {
+  if (!text) return "";
+  const head = String(text).split(".")[0].trim();
+  return head.length > 24 ? head.slice(0, 23) + "…" : head;
 }
 
 async function main() {
