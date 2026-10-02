@@ -240,9 +240,9 @@ python scripts/serve.py                          # terminal one
 ```
 
 `scripts/capture_demo.py` and `scripts/make_demo_video.py` are the short-cut
-alternative: they capture four real UI states, then export an ~11-second,
-16:9 video with a restrained push-in on each scene. Use it when you need
-individual frames or a compact clip without recording a live model wait.
+alternative: they capture four real UI states, then export a compact 16:9 video
+with a restrained push-in on each scene. Use it when you need individual
+frames or a compact clip without recording a live model wait.
 To render the video without ffmpeg, run `node scripts/render_demo_video.mjs`;
 it records the same captures through installed Chrome or Edge and adds subtle
 scene labels and crossfades.
