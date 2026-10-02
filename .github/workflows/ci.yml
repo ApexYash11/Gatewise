@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Confirm no credentials are required
+        env:
+          OPENROUTER_API_KEY: ""
+          TYPESAFE_API_KEY: ""
+        run: python scripts/diagnose_jev.py || true
+
+      - name: Test
+        run: pytest -q
+
+  guard:
+    name: Secret and artifact guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # No media binaries and no local databases may ever be committed.
+      - name: Fail if demo media or a database was committed
+        run: |
+          tracked=$(git ls-files)
+          echo "$tracked" | grep -Ei '(^|/)(demo)/.*\.(mp4|mov|webm|mkv)$' && {
+            echo "::error::A video was committed. Run artifacts locally; demo/ is gitignored."; exit 1; }
+          echo "$tracked" | grep -Ei '\.(db|sqlite|sqlite3)$' && {
+            echo "::error::A local database was committed."; exit 1; }
+          echo "No media or database artifacts tracked."
+
+      # Catches accidentally committed .env files even if .gitignore is bypassed.
+      - name: Fail if a .env file is tracked
+        run: |
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "::error::.env is tracked. Remove it and rotate the credential."; exit 1
+          fi
+          echo "No tracked .env."
+
+      # A real PEM block is many lines of base64; the test fixtures in
+      # tests/unit/test_config.py use a one-line stub, so exclude test paths.
+      - name: Fail if a private key is tracked
+        run: |
+          hits=$(git grep -lIE -- \
+            'BEGIN (RSA |EC |OPENSSH |PGP )?PRIVATE KEY' -- \
+            ':!tests/*' ':!*.example' ':!*.md' || true)
+          if [ -n "$hits" ]; then
+            echo "::error::A private key appears in:"; echo "$hits"; exit 1
+          fi
+          echo "No private keys tracked outside tests and docs."

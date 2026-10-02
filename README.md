@@ -1,11 +1,19 @@
 # Gatewise
 
+[![CI](https://github.com/ApexYash11/Gatewise/actions/workflows/ci.yml/badge.svg)](https://github.com/ApexYash11/Gatewise/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.12%2B-3776ab.svg)](pyproject.toml)
+[![Tests](https://img.shields.io/badge/tests-248%20passing-brightgreen.svg)](#setup)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
+
 Decision infrastructure for autonomous software engineering, built on typed
 System-1 decision models.
 
 Gatewise sits between AI coding agents / GitHub events and engineering actions. It
 extracts a compact context from a pull request, asks a real decision model for typed
 answers, and lets application policy decide what to do with them.
+
+![The Gatewise dashboard listing evaluated pull requests with their risk badges and decision summaries](docs/images/dashboard-cover.jpg)
 
 > **Status: working.** The decision layer, versioned question registry,
 > untrusted-input boundary, GitHub webhook verification, the decision pipeline,
@@ -55,6 +63,27 @@ Audit Store       ── run, decisions, and planned actions are persisted
 ```
 
 See [docs/architecture/overview.md](docs/architecture/overview.md).
+
+## Screenshots
+
+Every image below is the real dashboard, produced by the scripts in `scripts/` from
+a live server and a live model.
+
+**Filter the index by any decision.** Each chip filters the pull requests that share
+one typed answer.
+
+![The Gatewise index filtered to pull requests that require maintainer review](docs/images/02-filtered.png)
+
+**Expand a card to see the decision path.** Which question produced which answer,
+and in what order.
+
+![An expanded card showing the decision graph from context through to each typed answer](docs/images/03-decision-graph.png)
+
+**Review a real pull request from the browser.** Enter `owner/name` and a number;
+Gatewise fetches it, asks the six questions, and files the result. No terminal
+needed.
+
+![The review form reporting a successful real evaluation of a pull request](docs/images/04-review-result.png)
 
 ## The decisions
 
@@ -261,6 +290,77 @@ labels are **assistant-assessed**, not human-assessed — so they exercise the
 machinery rather than establish decision quality. No accuracy or cost claim is
 made here, because none has been measured against a human-labelled dataset.
 
+## Contributing
+
+Contributions are welcome, including from people who have never written a model
+provider in their life. Read [CONTRIBUTING.md](CONTRIBUTING.md) first — it is short
+and it explains the one rule that matters:
+
+> **Never fake intelligence.** A heuristic stand-in for the decision model may not be
+> added to this repository, and no provider failure may be converted into a default
+> answer such as `risk = 0` or `safe = true`.
+
+The reasoning is short. A fallback is indistinguishable from a real answer at the
+call site, so it turns a visible failure into an invisible, unauditable wrong
+answer. That is the exact opposite of what a decision layer is for.
+
+A quick start:
+
+```bash
+git clone https://github.com/ApexYash11/Gatewise.git
+cd Gatewise
+python -m venv .venv && .venv\Scripts\activate   # Windows
+# source .venv/bin/activate                        # macOS / Linux
+pip install -e ".[dev]"
+cp .env.example .env                              # optional: needed only for live model calls
+pytest
+```
+
+`pytest` runs 248 tests and needs **no API key and no network access**. You can
+contribute without ever holding a credential.
+
+Where to start depends on what interests you:
+
+| Interest | Good first step |
+| --- | --- |
+| Decision schemas and rubrics | `packages/decisions/questions/pull_request.yaml` |
+| Provider and transport | `packages/decisions/provider.py`, `packages/decisions/jev.py` |
+| Untrusted-input isolation | `packages/context/`, then `tests/adversarial/` |
+| Dashboard and UI | `apps/api/app/static/` |
+| Evaluation and metrics | `packages/evaluation/` |
+
+Two things to know before you change anything:
+
+- **Bump the version when you change a rubric.** Decisions are `name@version`
+  artifacts. A silent edit makes historical results quietly incomparable, which is
+  the one failure mode versioning exists to prevent.
+- **Verify external contracts against the installed SDK**, not blog posts or SEO
+  pages — there are many unrelated ones describing Jev. Record the provenance and
+  the date in the provider module docstring when you do.
+
+## Security
+
+Please **do not open a public issue for a security vulnerability**. Report it
+privately through GitHub's **Report a vulnerability** button under the repository's
+`Security` tab. See [SECURITY.md](SECURITY.md) for scope and what to include.
+
+## Community
+
+Questions, ideas, or something that does not match what you found? Open a
+[discussion](https://github.com/ApexYash11/Gatewise/discussions). Found a bug or
+want a feature? Use the [issue templates](.github/ISSUE_TEMPLATE).
+
+## Acknowledgements
+
+- **TypeSafe AI** — Jev, the System-1 decision model this is built on, and the
+  SDK that made a real typed decision possible.
+- Everyone who files an issue, opens a pull request, or reads the code to check
+  whether the claims here are true. Several corrections in this README came from
+  exactly that.
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
+
+Released under the Apache License, Version 2.0. Contributions are accepted under
+the same terms.

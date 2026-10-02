@@ -1,5 +1,11 @@
 # Contributing to Gatewise
 
+Thanks for your interest. This document is short on purpose — it explains the one
+rule that matters, how to get set up, and what a good pull request looks like.
+
+- [Security issues](#reporting-security-issues) — report these privately, not as issues.
+- [Changelog](CHANGELOG.md) — add an entry under `Unreleased` for user-visible changes.
+
 ## The one rule that matters
 
 **Never fake intelligence.** No rule-based, keyword-counting, or heuristic stand-in for

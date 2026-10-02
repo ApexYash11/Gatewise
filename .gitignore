@@ -45,6 +45,9 @@ _*.out
 # running app, so the repository ships the tooling rather than the binaries and
 # none of it is committed. Regenerate with scripts/record_demo.py (a screen
 # recording) or scripts/capture_demo.py + make_demo_video.py (still frames).
+#
+# Only `demo/` is ignored. The curated, downscaled screenshots under
+# docs/images/ ARE tracked, because the README links to them.
 demo/*.png
 demo/*.jpg
 demo/*.mp4

@@ -1,0 +1,54 @@
+name: Bug report
+description: Something behaves incorrectly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gatewise will not fake a decision to work around a bug. If the model is
+        unavailable the run fails, and that is correct behaviour — please report
+        the failure rather than the absence of a fallback.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you observed, and what you expected instead.
+      placeholder: The run failed with `decision provider is not configured`, but I expected a stored run.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Paste `python scripts/diagnose_jev.py` output. It reports which credentials are *present*, never their values, so it is safe to share.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Gatewise commit
+      placeholder: git rev-parse --short HEAD
+
+  - type: checkboxes
+    attributes:
+      label: Checklist
+      options:
+        - label: I removed my API keys, tokens, and webhook secret from anything I pasted above.
+          required: true
+        - label: I searched the repo history (`git log -p`) and found no committed secret.
+          required: false

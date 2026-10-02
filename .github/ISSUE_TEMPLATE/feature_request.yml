@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest a capability or an improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can't you do today? Describe the situation rather than the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What you would like to happen instead.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the pipeline?
+      options:
+        - Decision provider / Jev
+        - Question registry and rubrics
+        - Context building and untrusted-input isolation
+        - GitHub webhook ingestion
+        - Action planning and execution
+        - Audit store and API
+        - Dashboard UI
+        - Evaluation harness
+        - Documentation and packaging
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    attributes:
+      label: Checklist
+      options:
+        - label: This would not require a heuristic stand-in for the decision model. If it seems to, please describe why — the answer is often a better question rather than a better heuristic.
+          required: true
