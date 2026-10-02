@@ -350,6 +350,12 @@ Questions, ideas, or something that does not match what you found? Open a
 [discussion](https://github.com/ApexYash11/Gatewise/discussions). Found a bug or
 want a feature? Use the [issue templates](.github/ISSUE_TEMPLATE).
 
+## Contributors
+
+Thanks to everyone who has contributed to Gatewise.
+
+![Contributors](https://contrib.rocks/image?repo=ApexYash11/Gatewise)
+
 ## Acknowledgements
 
 - **TypeSafe AI** — Jev, the System-1 decision model this is built on, and the
