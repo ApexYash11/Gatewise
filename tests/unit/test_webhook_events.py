@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from github.events import SUPPORTED_ACTIONS, WebhookParseError, parse_pull_request_event
 
 

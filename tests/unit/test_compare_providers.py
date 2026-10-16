@@ -13,7 +13,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from config import Settings
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "compare_providers.py"

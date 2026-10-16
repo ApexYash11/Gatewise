@@ -23,17 +23,39 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "aiosqlite>=0.20"]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "aiosqlite>=0.20", "ruff>=0.8", "mypy>=1.13"]
+
+[project.scripts]
+gatewise = "review.cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "packages" }
 
 [tool.setuptools.packages.find]
 where = ["packages"]
-include = ["decisions*", "context*", "github*", "actions*", "audit*", "evaluation*", "config*"]
+include = ["decisions*", "context*", "github*", "actions*", "audit*", "evaluation*", "config*", "review*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["packages"]
 filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+# Launcher and demo scripts deliberately import after a sys.path insert, and
+# carry long presentation strings; they are checked lightly.
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E402", "E501"]
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["actions", "audit", "config", "context", "decisions", "github", "review", "evaluation"]
+check_untyped_defs = true
+ignore_missing_imports = true
+mypy_path = "packages"

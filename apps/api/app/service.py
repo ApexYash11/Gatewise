@@ -28,7 +28,6 @@ from github import (
     PullRequestEvent,
     SignatureError,
     WebhookParseError,
-    compute_signature,
     fetch_pull_request,
     parse_pull_request_event,
     verify_signature,

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from github.dedup import DeliveryDeduplicator, action_fingerprint
 
 

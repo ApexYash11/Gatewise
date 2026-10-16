@@ -92,7 +92,7 @@ class JevDecisionProvider(DecisionProvider):
             if isinstance(question, dict):
                 question = _coerce_question(question)
             qtype = getattr(question, "type", None)
-            builder = _QUESTION_BUILDERS.get(qtype)
+            builder = _QUESTION_BUILDERS.get(str(qtype))
             if builder is None:
                 raise DecisionValidationError(
                     f"question {name!r} has unsupported type {qtype!r}"
@@ -198,7 +198,7 @@ class JevDecisionProvider(DecisionProvider):
 
         answers: dict[str, Answer] = {}
         for name, value in raw.items():
-            kind = getattr(value, "type", None)
+            getattr(value, "type", None)
             try:
                 answers[name] = _to_answer(value, name)
             except DecisionValidationError:

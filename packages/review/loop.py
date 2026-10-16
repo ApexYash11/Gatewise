@@ -1,0 +1,146 @@
+"""One pull request through the whole loop, without a server.
+
+``run_review`` is the full loop in one awaitable:
+
+    fetch the real PR -> build isolated context -> ask the real model
+    -> record the run -> perform only the actions it justifies
+
+The webhook flow verifies a signature before it parses a payload; there is no
+signature to verify here because there is no request to verify — the event is
+constructed from the response GitHub just gave us. That is not a shortcut past
+the parser: :func:`github.fetch.fetch_pull_request` returns the same normalized
+:class:`github.events.PullRequestEvent` a real delivery produces, so nothing
+downstream can tell the two apart.
+
+Recording always happens, including for failed runs. An evaluation the model
+never produced must still be visible in the audit store; that is the contract
+the webhook path already keeps.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+import httpx
+from actions.executor import ActionResult, GitHubActionExecutor
+from actions.pipeline import DecisionPipeline, EvaluationRun
+from audit import AuditStore, create_engine, create_schema, session_scope
+from config import Settings
+from context import PullRequestContext, build_context
+from decisions.jev import JevDecisionProvider
+from decisions.provider import DecisionProvider
+from decisions.registry import load_registry
+from github.events import PullRequestEvent
+from github.fetch import fetch_pull_request
+
+
+@dataclass
+class ReviewResult:
+    """Everything one review produced, for printing or for a comment payload."""
+
+    event: PullRequestEvent
+    run: EvaluationRun
+    context: PullRequestContext
+    actions: list[dict[str, Any]] = field(default_factory=list)
+    action_results: list[ActionResult] = field(default_factory=list)
+    #: Whether any GitHub write was even attempted; ``False`` means plan-only.
+    token_used: bool = False
+    database_url: str = ""
+
+
+async def run_review(
+    repository: str,
+    number: int,
+    *,
+    token: str | None = None,
+    settings: Settings | None = None,
+    github_client: httpx.AsyncClient | None = None,
+    decision_provider: DecisionProvider | None = None,
+    action_executor: Any = None,
+) -> ReviewResult:
+    """Review one live pull request end to end.
+
+    Args:
+        repository: The ``owner/name`` to fetch.
+        number: The pull request number.
+        token: A GitHub token with Issues and Pull requests write. Fetching a
+            public repository works unauthenticated; performing planned actions
+            requires the token, and without it the review stays plan-only.
+        settings: Injected configuration; read from the environment when None.
+        github_client: Injected HTTP client for the GitHub API, so tests can
+            stub the network without contacting GitHub.
+        decision_provider: Injected provider, so tests can stub the model's
+            network without substituting any decision logic. When None, the real
+            Jev provider is built from the configured credentials — unconfigured
+            credentials raise and no run exists at all.
+        action_executor: Injected executor, for the same reason.
+
+    Returns:
+        A :class:`ReviewResult`. A provider failure is recorded on the run, not
+        raised: a missing decision authorizes nothing but is still a fact.
+    """
+    settings = settings or Settings()
+
+    event = await fetch_pull_request(repository, number, token=token, client=github_client)
+    context = build_context(
+        number=event.number,
+        title=event.title,
+        description=event.description,
+        author=event.author,
+        base_branch=event.base_branch,
+        head_branch=event.head_branch,
+        labels=event.labels,
+        changed_files=event.changed_files,
+        draft=event.draft,
+    )
+
+    provider = decision_provider
+    if provider is None:
+        api_key, base_url = settings.jev_credentials()
+        provider = JevDecisionProvider(
+            api_key,
+            settings.jev_model,
+            base_url=base_url,
+            transport_name=settings.jev_transport,
+        )
+
+    pipeline = DecisionPipeline(
+        provider,
+        load_registry(),
+        is_official_jev=getattr(provider, "is_official_jev", False),
+    )
+    try:
+        run = await pipeline.evaluate(event, context)
+        result = ReviewResult(
+            event=event,
+            run=run,
+            context=context,
+            actions=pipeline.plan_actions(run),
+            token_used=token is not None,
+            database_url=settings.database_url,
+        )
+
+        engine = create_engine(settings.database_url)
+        await create_schema(engine)
+        async with session_scope(engine) as session:
+            await AuditStore(session).record_run(event, run, result.actions)
+        await engine.dispose()
+    finally:
+        await provider.close()
+
+    if result.token_used and result.actions:
+        executor = action_executor or GitHubActionExecutor(token or "")
+        try:
+            for action in result.actions:
+                result.action_results.append(
+                    await executor.perform(
+                        action, repository=event.repository, number=event.number
+                    )
+                )
+        finally:
+            final_close = getattr(executor, "close", None)
+            if final_close is not None:
+                await final_close()
+
+    return result

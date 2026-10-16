@@ -6,16 +6,14 @@ import json
 
 import pytest
 import typesafe_sdk
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from actions import DecisionPipeline
 from audit import AuditStore, create_engine, create_schema
+from conftest import RecordingTransport
 from context import build_context
 from decisions.jev import JevDecisionProvider
 from decisions.registry import load_registry
 from github.events import parse_pull_request_event
-
-from conftest import RecordingTransport
+from sqlalchemy.ext.asyncio import AsyncSession
 
 REAL_PAYLOAD = {
     "model": "jev-1.13.0",

@@ -5,9 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from github.security import (
-    SIGNATURE_HEADER,
     SignatureError,
     compute_signature,
     verify_signature,

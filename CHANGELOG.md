@@ -8,7 +8,15 @@ Gatewise is pre-1.0. `0.x` releases may change the decision schemas or the API.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`gatewise` CLI.** `packages/review` provides the serverless review loop —
+  `gatewise review owner/name 123` fetches a real pull request, asks the
+  decision model, always records the run, and performs only the actions it
+  justifies, with the same result a webhook delivery produces. `--no-execute`
+  plans and records without touching GitHub. Stable exit codes for automation:
+  0 reviewed, 2 usage, 3 model unavailable, 4 fetch failed, 5 not configured.
+- **Linting in CI.** `ruff` and `mypy` over all packages, run as a new CI job.
 
 ## [0.1.0]
 

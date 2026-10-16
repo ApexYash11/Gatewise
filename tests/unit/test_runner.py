@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from decisions.provider import DecisionUnavailable
 from decisions.registry import load_registry
 from decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer

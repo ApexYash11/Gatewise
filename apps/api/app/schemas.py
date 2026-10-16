@@ -7,25 +7,9 @@ available whether it is reached over HTTP or from a script.
 
 from __future__ import annotations
 
-import os
-from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator
+from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from actions.pipeline import DecisionPipeline
-from audit import AuditStore, create_engine, create_schema, session_scope
-from config import Settings
-from decisions.jev import JevDecisionProvider
-from decisions.registry import QuestionRegistry, load_registry
-from github import DeliveryDeduplicator
-
-from .service import GatewiseService, WebhookOutcome
-
-__all__ = ["create_app"]
 
 
 class PullRequestSummary(BaseModel):

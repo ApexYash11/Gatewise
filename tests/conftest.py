@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -66,11 +65,20 @@ def real_jev_payload() -> dict:
                 "score": 4.2,
                 "confidence": 0.88,
                 "legend": {
-                    "0": "Trivial. No behavioural change; cosmetic, comment, or documentation only.",
+                    "0": (
+                        "Trivial. No behavioural change; cosmetic, comment, or "
+                        "documentation only."
+                    ),
                     "1": "Low. Contained, easily reverted, with an obvious blast radius.",
                     "2": "Moderate. Real behavioural change affecting known consumers.",
-                    "3": "High. Changes behaviour across system boundaries with a wide blast radius.",
-                    "4": "Critical. Affects data integrity, security, money, or core public API contracts.",
+                    "3": (
+                        "High. Changes behaviour across system boundaries with a "
+                        "wide blast radius."
+                    ),
+                    "4": (
+                        "Critical. Affects data integrity, security, money, or core "
+                        "public API contracts."
+                    ),
                 },
                 "probabilities": {"0": 0.0, "1": 0.0, "2": 0.02, "3": 0.1, "4": 0.88},
             },

@@ -4,16 +4,13 @@ from __future__ import annotations
 
 import json
 
-import pytest
 import typesafe_sdk
-
 from actions import DecisionPipeline, RunStatus, hash_state
+from conftest import RecordingTransport
 from context import build_context
 from decisions.jev import JevDecisionProvider
 from decisions.registry import load_registry
 from github.events import parse_pull_request_event
-
-from conftest import RecordingTransport
 
 SECRET = "pipeline-test-secret"
 

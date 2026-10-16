@@ -23,12 +23,12 @@ from __future__ import annotations
 import time
 from typing import Any, Protocol
 
-from decisions.provider import DecisionError, DecisionProvider
+from decisions.provider import DecisionError
 from decisions.registry import QuestionRegistry
 from decisions.schemas import Answer, ChoiceAnswer, NoulAnswer, ScoreAnswer
 
 from .dataset import Case, Dataset
-from .metrics import BinaryCounts, EvaluationReport, brier_score
+from .metrics import BinaryCounts, EvaluationReport
 
 #: Probability at or above which a noul counts as "yes" for confusion counting.
 DEFAULT_THRESHOLD = 0.5

@@ -11,13 +11,11 @@ import json
 
 import pytest
 import typesafe_sdk
-
+from conftest import RecordingTransport
 from decisions.jev import JevDecisionProvider
 from decisions.provider import DecisionUnavailable, DecisionValidationError
 from decisions.registry import load_registry
 from decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
-
-from conftest import RecordingTransport
 
 
 def make_provider(payload: dict, status_code: int = 200) -> JevDecisionProvider:
@@ -174,7 +172,9 @@ async def test_openrouter_response_shape_normalizes_identically():
                 "type": "score",
                 "score": 4.2,
                 "confidence": 0.88,
-                "legend": {"0": "Trivial", "1": "Low", "2": "Moderate", "3": "High", "4": "Critical"},
+                "legend": {
+                    "0": "Trivial", "1": "Low", "2": "Moderate", "3": "High", "4": "Critical"
+                },
                 "probabilities": {"0": 0, "1": 0, "2": 0.02, "3": 0.1, "4": 0.88},
             },
             "pr_breaking_change": {"type": "noul", "noul": 0.07},

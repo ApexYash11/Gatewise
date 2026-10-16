@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import httpx
 import pytest
-
 from actions import (
     ALLOWED_ACTIONS,
     FORBIDDEN_ACTIONS,

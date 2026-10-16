@@ -15,7 +15,7 @@
 
 ## Checklist
 
-- [ ] `pytest` passes locally (248 tests, no network needed).
+- [ ] `pytest` passes locally (264 tests, no network needed).
 - [ ] New behaviour has a test; a bug fix has a test that fails without it.
 - [ ] Tests stub the **network boundary**, not the model's judgement. No test hard-codes "this PR is high risk".
 - [ ] New provider failure modes are covered: timeout, rate limit, authentication, network error, malformed response, missing answer.

@@ -9,14 +9,12 @@ from __future__ import annotations
 
 import pytest
 import typesafe_sdk
-
+from conftest import RecordingTransport
 from context import build_context
 from decisions.jev import JevDecisionProvider
 from decisions.provider import DecisionUnavailable, DecisionValidationError
 from decisions.registry import load_registry
-from decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
-
-from conftest import RecordingTransport
+from decisions.schemas import ChoiceAnswer, ScoreAnswer
 
 
 def build_context_for_demo():

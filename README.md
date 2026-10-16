@@ -3,7 +3,7 @@
 [![CI](https://github.com/ApexYash11/Gatewise/actions/workflows/ci.yml/badge.svg)](https://github.com/ApexYash11/Gatewise/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12%2B-3776ab.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-248%20passing-brightgreen.svg)](#setup)
+[![Tests](https://img.shields.io/badge/tests-264%20passing-brightgreen.svg)](#setup)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
 Decision infrastructure for autonomous software engineering, built on typed
@@ -18,7 +18,7 @@ answers, and lets application policy decide what to do with them.
 > **Status: working.** The decision layer, versioned question registry,
 > untrusted-input boundary, GitHub webhook verification, the decision pipeline,
 > persistence, the HTTP API, the dashboard, and the evaluation harness are all
-> implemented and tested (**248 tests**, no network access required). Actions are
+> implemented and tested (**264 tests**, no network access required). Actions are
 > *planned* on every path; *executing* them against GitHub is a separate, explicit
 > step that requires a token, so a decision never mutates a repository on its own.
 >
@@ -129,7 +129,8 @@ If both are set, the direct TypeSafe key wins. The key is never committed, never
 logged, and never sent to the model.
 
 ```bash
-pytest                                  # 248 tests, no network access required
+pytest                                  # 264 tests, no network access required
+gatewise review owner/name 1            # review a PR; the CLI behind review_pr.py
 python scripts/serve.py                 # API + dashboard on http://127.0.0.1:8000
 python scripts/smoke_jev.py             # one real call: context -> six decisions
 python scripts/smoke_pipeline.py        # full pipeline, real model, action plan
@@ -269,6 +270,7 @@ packages/config/      Environment configuration and secret handling
 packages/github/      Webhook signature verification, deduplication, event parsing
 packages/actions/     Decision pipeline and deterministic action planning
 packages/audit/       SQLAlchemy models and the audit store
+packages/review/      The `gatewise` CLI and the serverless review loop
 packages/evaluation/  Dataset loading with enforced provenance, metrics, runner
 apps/api/             FastAPI service: webhook receiver and read endpoints
 benchmarks/           Seed benchmark dataset (assistant-assessed labels)
@@ -316,7 +318,7 @@ cp .env.example .env                              # optional: needed only for li
 pytest
 ```
 
-`pytest` runs 248 tests and needs **no API key and no network access**. You can
+`pytest` runs 264 tests and needs **no API key and no network access**. You can
 contribute without ever holding a credential.
 
 Where to start depends on what interests you:
