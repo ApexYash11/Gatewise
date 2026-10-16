@@ -201,6 +201,62 @@ async def test_token_executes_only_the_planned_actions(real_jev_payload, tmp_pat
     assert "actions applied" in report
 
 
+async def test_no_execute_records_but_never_performs(real_jev_payload, tmp_path):
+    """--no-execute drops write permission, not read authentication."""
+    executor = RecordingExecutor()
+    result = await run_review(
+        "octo/repo",
+        9,
+        token="gh-token-not-real",
+        settings=make_settings(tmp_path),
+        github_client=make_github(),
+        decision_provider=make_provider(real_jev_payload),
+        action_executor=executor,
+        execute_actions=False,
+    )
+
+    assert result.run.succeeded
+    assert result.actions, "actions are still planned and recorded"
+    assert result.token_used is False
+    assert result.action_results == []
+    assert executor.performed == [], "plan-only must not write anything"
+    assert (tmp_path / "audit.db").exists()
+
+
+async def test_repeated_review_never_reexecutes_recorded_actions(
+    real_jev_payload, tmp_path
+):
+    """Same content, same fingerprints: the second run must plan only."""
+    settings = make_settings(tmp_path)
+    first_executor = RecordingExecutor()
+    await run_review(
+        "octo/repo",
+        9,
+        token="gh-token-not-real",
+        settings=settings,
+        github_client=make_github(),
+        decision_provider=make_provider(real_jev_payload),
+        action_executor=first_executor,
+    )
+    assert len(first_executor.performed) == 3
+
+    second_executor = RecordingExecutor()
+    second = await run_review(
+        "octo/repo",
+        9,
+        token="gh-token-not-real",
+        settings=settings,
+        github_client=make_github(),
+        decision_provider=make_provider(real_jev_payload),
+        action_executor=second_executor,
+    )
+
+    assert second.run.succeeded
+    assert second.actions, "the run still justifies the same actions"
+    assert second.pending_actions == [], "everything is already on record"
+    assert second_executor.performed == []
+
+
 async def test_token_with_no_actions_runs_plan_only(tmp_path):
     """With a token but nothing justified, no executor is ever constructed."""
     result = await run_review(

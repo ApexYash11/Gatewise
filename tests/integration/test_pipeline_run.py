@@ -141,6 +141,24 @@ async def test_failed_run_is_recorded_not_raised():
     assert run.completed_at is not None
 
 
+async def test_malformed_response_is_recorded_not_raised():
+    """A validation failure is a decision never produced: recorded, not raised.
+
+    The audit trail depends on it — an exception escaping ``evaluate`` would
+    leave no run row at all, and an unrecorded failure is indistinguishable
+    from silence.
+    """
+    pipeline, _ = make_pipeline({"model": "jev-1.13.0", "answers": {}}, 200)
+    event = make_event()
+
+    run = await pipeline.evaluate(event, make_context(event))
+
+    assert run.status is RunStatus.FAILED
+    assert run.error, "the reason the answers were rejected is kept"
+    assert run.latency_ms >= 0
+    assert run.completed_at is not None
+
+
 async def test_local_provider_is_not_recorded_as_official_jev(real_jev_payload):
     pipeline, _ = make_pipeline(real_jev_payload, is_official_jev=False)
     event = make_event()

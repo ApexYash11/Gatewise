@@ -26,7 +26,11 @@ from enum import Enum
 from typing import Any
 
 from context.builder import PullRequestContext
-from decisions.provider import DecisionProvider, DecisionUnavailable
+from decisions.provider import (
+    DecisionProvider,
+    DecisionUnavailable,
+    DecisionValidationError,
+)
 from decisions.registry import QuestionRegistry
 from decisions.schemas import Answer, NoulAnswer, ScoreAnswer
 from github.dedup import action_fingerprint
@@ -112,7 +116,11 @@ class DecisionPipeline:
             run.answers = await self._provider.evaluate(
                 context.state, self._registry.build_request()
             )
-        except DecisionUnavailable as exc:
+        except (DecisionUnavailable, DecisionValidationError) as exc:
+            # Both failure kinds land here. A malformed response is a decision
+            # the model never produced, exactly like an outage: recording it as
+            # a failed run is the difference between an auditable failure and a
+            # crash that leaves no trace.
             run.status = RunStatus.FAILED
             run.error = str(exc)
         else:

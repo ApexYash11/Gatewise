@@ -43,6 +43,9 @@ class ReviewResult:
     run: EvaluationRun
     context: PullRequestContext
     actions: list[dict[str, Any]] = field(default_factory=list)
+    #: The planned actions not already on record from a previous run — the
+    #: subset this loop is actually allowed to perform.
+    pending_actions: list[dict[str, Any]] = field(default_factory=list)
     action_results: list[ActionResult] = field(default_factory=list)
     #: Whether any GitHub write was even attempted; ``False`` means plan-only.
     token_used: bool = False
@@ -58,15 +61,17 @@ async def run_review(
     github_client: httpx.AsyncClient | None = None,
     decision_provider: DecisionProvider | None = None,
     action_executor: Any = None,
+    execute_actions: bool = True,
 ) -> ReviewResult:
     """Review one live pull request end to end.
 
     Args:
         repository: The ``owner/name`` to fetch.
         number: The pull request number.
-        token: A GitHub token with Issues and Pull requests write. Fetching a
-            public repository works unauthenticated; performing planned actions
-            requires the token, and without it the review stays plan-only.
+        token: A GitHub token, used for *reads* (authenticated fetch, needed for
+            private repositories) and, when ``execute_actions`` is set, for the
+            write-permitted planned actions. Fetching a public repository works
+            unauthenticated.
         settings: Injected configuration; read from the environment when None.
         github_client: Injected HTTP client for the GitHub API, so tests can
             stub the network without contacting GitHub.
@@ -75,6 +80,8 @@ async def run_review(
             Jev provider is built from the configured credentials — unconfigured
             credentials raise and no run exists at all.
         action_executor: Injected executor, for the same reason.
+        execute_actions: When False (``--no-execute``), planned actions are
+            recorded but never performed, even with a token present.
 
     Returns:
         A :class:`ReviewResult`. A provider failure is recorded on the run, not
@@ -117,22 +124,39 @@ async def run_review(
             run=run,
             context=context,
             actions=pipeline.plan_actions(run),
-            token_used=token is not None,
+            token_used=token is not None and execute_actions,
             database_url=settings.database_url,
         )
 
+        # Record first (the audit truth), then determine what is genuinely new:
+        # an unchanged pull request replans the same fingerprints, so anything
+        # recorded by a previous run must not be performed again. Checking
+        # pre-existence inside the same session the insert happens in keeps the
+        # audit store the single authority on what executed.
+        eligible: list[dict[str, Any]] = []
         engine = create_engine(settings.database_url)
         await create_schema(engine)
         async with session_scope(engine) as session:
-            await AuditStore(session).record_run(event, run, result.actions)
+            store = AuditStore(session)
+            already_planned = [
+                await store.has_fingerprint(action["fingerprint"])
+                for action in result.actions
+            ]
+            await store.record_run(event, run, result.actions)
+            eligible = [
+                action
+                for action, seen in zip(result.actions, already_planned)
+                if not seen
+            ]
         await engine.dispose()
+        result.pending_actions = eligible
     finally:
         await provider.close()
 
-    if result.token_used and result.actions:
+    if result.token_used and result.pending_actions:
         executor = action_executor or GitHubActionExecutor(token or "")
         try:
-            for action in result.actions:
+            for action in result.pending_actions:
                 result.action_results.append(
                     await executor.perform(
                         action, repository=event.repository, number=event.number

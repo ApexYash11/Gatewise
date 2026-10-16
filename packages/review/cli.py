@@ -11,6 +11,7 @@ Exit codes, stable because automation depends on them:
     3  the decision model failed; the run is recorded, nothing was executed
     4  the pull request could not be fetched from GitHub
     5  the decision provider is not configured
+    6  GitHub rejected an attempted action (labels/dispatch); run is recorded
 """
 
 from __future__ import annotations
@@ -32,20 +33,38 @@ EXIT_USAGE = 2
 EXIT_DECISION_FAILED = 3
 EXIT_FETCH_FAILED = 4
 EXIT_NOT_CONFIGURED = 5
+EXIT_ACTION_FAILED = 6
 
 
 def parse_reference(repository: str, number: int | None) -> tuple[str, int] | None:
     """Resolve ``('owner/name', 123)`` from the CLI's two argument styles.
 
     Accepts ``owner/name 123`` or ``owner/name#123``. Returns None when no
-    number can be read; the caller decides what that means (usage error).
+    positive number can be read; the caller decides what that means (usage
+    error). Zero and negative numbers are a usage mistake, not a fetch
+    failure, so they are rejected here rather than at the API.
     """
     if number is not None:
-        return repository, number
+        return (repository, number) if number > 0 else None
     repo, _, tail = repository.partition("#")
-    if repo and tail.isdigit():
+    if repo and tail.isdigit() and int(tail) > 0:
         return repo, int(tail)
     return None
+
+
+def exit_code(result) -> int:
+    """Map a review result to its process exit code.
+
+    A failed evaluation (3) takes precedence over a rejected write (6): the
+    decision is the reason downstream actions were never authorized. A
+    *skipped* action is expected behaviour, not a failure — for example the
+    planner's request-review sentinel, which the executor declines by design.
+    """
+    if not result.run.succeeded:
+        return EXIT_DECISION_FAILED
+    if any(applied.status == "failed" for applied in result.action_results):
+        return EXIT_ACTION_FAILED
+    return EXIT_OK
 
 
 async def _run(argv: list[str]) -> int:
@@ -89,13 +108,15 @@ async def _run(argv: list[str]) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_NOT_CONFIGURED
 
-    if args.no_execute:
-        token = None
-    else:
-        token = settings.github_token
+    # The token is for *reads* regardless of --no-execute: a private repository
+    # must still be fetchable. Write permission is what --no-execute removes.
+    token = settings.github_token
 
     try:
-        result = await run_review(repository, number, token=token, settings=settings)
+        result = await run_review(
+            repository, number, token=token, settings=settings,
+            execute_actions=not args.no_execute,
+        )
     except (PullRequestFetchError, WebhookParseError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FETCH_FAILED
@@ -108,9 +129,7 @@ async def _run(argv: list[str]) -> int:
         body = render_review(result)
     print(body)
 
-    if not result.run.succeeded:
-        return EXIT_DECISION_FAILED
-    return EXIT_OK
+    return exit_code(result)
 
 
 def main(argv: list[str] | None = None) -> int:
