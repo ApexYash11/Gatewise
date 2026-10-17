@@ -136,7 +136,7 @@ decision.
 
 ## Status
 
-Implemented and tested (248 tests):
+Implemented and tested (264 tests):
 
 - typed decision schemas matching the verified Jev contract;
 - the provider abstraction and the real Jev provider, verified against the live
@@ -151,10 +151,14 @@ Implemented and tested (248 tests):
   accounting.
 
 Also implemented: the dashboard (index, filters, decision graph, and an
-on-demand review form), and action *execution* against the GitHub API
-(`scripts/apply_action.py`, `scripts/review_pr.py`) behind an explicit
-`GITHUB_TOKEN` — the product never needs write access to produce a decision.
-A human-labelled benchmark dataset is still missing, so no accuracy claim is
+on-demand review form), and the serverless review loop (`packages/review`)
+exposed as the `gatewise` CLI — the same fetch, decide, and record path a
+webhook delivery produces, callable without a server (`gatewise review
+owner/name 123`), with optional *execution* of the actions the run justifies
+against the GitHub API behind an explicit `GITHUB_TOKEN`. Webhook deliveries
+plan and record only; executing them happens in the CLI path when a token is
+present. The product never needs write access to produce a decision. A
+human-labelled benchmark dataset is still missing, so no accuracy claim is
 made.
 
 Live runs, reproducible:

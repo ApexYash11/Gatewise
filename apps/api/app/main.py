@@ -20,15 +20,9 @@ turn a provider outage into a monitoring storm.
 
 from __future__ import annotations
 
-import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from actions.pipeline import DecisionPipeline
 from audit import AuditStore, create_engine, create_schema, session_scope
@@ -36,12 +30,15 @@ from config import Settings
 from context import build_context
 from decisions.jev import JevDecisionProvider
 from decisions.registry import load_registry
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from github import (
     DeliveryDeduplicator,
     PullRequestFetchError,
-    parse_pull_request_event,
     validate_repository,
 )
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .schemas import (
     DecisionResult,
@@ -98,7 +95,10 @@ class AppState:
         if provider is None:
             raise HTTPException(
                 status_code=503,
-                detail="decision provider is not configured; set TYPESAFE_API_KEY or OPENROUTER_API_KEY",
+                detail=(
+                    "decision provider is not configured; set "
+                    "TYPESAFE_API_KEY or OPENROUTER_API_KEY"
+                ),
             )
         return GatewiseService(
             DecisionPipeline(
@@ -315,7 +315,6 @@ def create_app() -> FastAPI:
         decisions and the action plan; nothing is executed against GitHub.
         """
         service = state.service(session)
-        provider = service._pipeline._provider  # noqa: SLF001 - internal route
         context = build_context(
             number=payload.number,
             title=payload.title,

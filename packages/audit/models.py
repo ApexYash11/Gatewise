@@ -174,6 +174,12 @@ class ActionRecord(Base):
     target: Mapped[str | None] = mapped_column(String(128))
     status: Mapped[str] = mapped_column(String(32), default="planned")
     result: Mapped[str | None] = mapped_column(Text)
+    #: When this row passed from planned to executing. Reclaim of a row stuck in
+    #: ``executing`` (dead process) is measured against this, not creation time.
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: Identifies the claim that owns the row, so a stale recovered worker
+    #: cannot settle outcomes onto a newer claim it lost.
+    claim_token: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
 

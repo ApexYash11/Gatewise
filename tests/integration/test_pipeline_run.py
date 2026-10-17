@@ -4,16 +4,13 @@ from __future__ import annotations
 
 import json
 
-import pytest
 import typesafe_sdk
-
 from actions import DecisionPipeline, RunStatus, hash_state
+from conftest import RecordingTransport
 from context import build_context
 from decisions.jev import JevDecisionProvider
 from decisions.registry import load_registry
 from github.events import parse_pull_request_event
-
-from conftest import RecordingTransport
 
 SECRET = "pipeline-test-secret"
 
@@ -144,6 +141,24 @@ async def test_failed_run_is_recorded_not_raised():
     assert run.completed_at is not None
 
 
+async def test_malformed_response_is_recorded_not_raised():
+    """A validation failure is a decision never produced: recorded, not raised.
+
+    The audit trail depends on it — an exception escaping ``evaluate`` would
+    leave no run row at all, and an unrecorded failure is indistinguishable
+    from silence.
+    """
+    pipeline, _ = make_pipeline({"model": "jev-1.13.0", "answers": {}}, 200)
+    event = make_event()
+
+    run = await pipeline.evaluate(event, make_context(event))
+
+    assert run.status is RunStatus.FAILED
+    assert run.error, "the reason the answers were rejected is kept"
+    assert run.latency_ms >= 0
+    assert run.completed_at is not None
+
+
 async def test_local_provider_is_not_recorded_as_official_jev(real_jev_payload):
     pipeline, _ = make_pipeline(real_jev_payload, is_official_jev=False)
     event = make_event()
@@ -233,6 +248,74 @@ async def test_planned_actions_have_stable_fingerprints(real_jev_payload):
     assert [a["fingerprint"] for a in pipeline.plan_actions(first)] == [
         a["fingerprint"] for a in pipeline.plan_actions(second)
     ]
+
+
+async def test_planned_labels_have_distinct_fingerprints(real_jev_payload):
+    """Two justified labels never share an identity.
+
+    ``risk:high`` and ``security:review`` could both be justified by one run;
+    if their fingerprints collided, the second label would look like a
+    duplicate of the first and never be recorded or performed.
+    """
+    payload = full_payload(
+        4.0,
+        {"0": 0, "1": 0, "2": 0.05, "3": 0.05, "4": 0.9},
+        pr_security_review=0.92,
+        pr_additional_testing=0.1,
+        pr_maintainer_review=0.1,
+    )
+    pipeline, _ = make_pipeline(payload)
+    event = make_event()
+
+    run = await pipeline.evaluate(event, make_context(event))
+    actions = pipeline.plan_actions(run)
+
+    targets = {action["target"] for action in actions}
+    assert {"risk:high", "security:review"} <= targets, (
+        "the payload must actually justify both labels, or nothing is proven"
+    )
+
+    fingerprint_groups = {}
+    for action in actions:
+        by_type = fingerprint_groups.setdefault(action["action_type"], [])
+        by_type.append(action["fingerprint"])
+    for fingerprints in fingerprint_groups.values():
+        assert len(fingerprints) == len(set(fingerprints)), (
+            "distinct targets must have distinct identities"
+        )
+
+
+async def test_plan_identity_moves_with_the_head_commit(real_jev_payload):
+    """A new head is new content: identical context, different identity.
+
+    The state hash (what the model saw) stays stable; only the action
+    fingerprint carries the commit, so re-reviewing new code can re-justify
+    actions without rewriting what was decided.
+    """
+    pipeline, _ = make_pipeline(real_jev_payload)
+    event = make_event()
+
+    run = await pipeline.evaluate(event, make_context(event))
+    as_first_commit = pipeline.plan_actions(run, head_sha="sha-1")
+    as_new_commit = pipeline.plan_actions(run, head_sha="sha-2")
+
+    # A regression that drops actions would make the disjointness check
+    # vacuous, so prove both plans actually carry the expected targets first.
+    expected_targets = {a["target"] for a in as_first_commit}
+    assert as_first_commit and as_new_commit, "both plans must be non-empty"
+    assert {a["target"] for a in as_new_commit} == expected_targets
+    assert expected_targets, "the fixture payload must justify at least one action"
+
+    same_commit_again = pipeline.plan_actions(run, head_sha="sha-1")
+    assert [a["fingerprint"] for a in as_first_commit] == [
+        a["fingerprint"] for a in same_commit_again
+    ]
+    assert {a["fingerprint"] for a in as_first_commit}.isdisjoint(
+        {a["fingerprint"] for a in as_new_commit}
+    )
+    # The decision context hash itself is untouched: it describes what the
+    # model saw, not which commit produced it.
+    assert run.state_hash == hash_state(make_context(event).state)
 
 
 async def test_policy_routes_on_levels_not_exact_floats():

@@ -15,22 +15,14 @@ from pathlib import Path
 import pytest
 import typesafe_sdk
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 # The API app lives under apps/api, which is not on the package path.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "api"))
 
 from app.main import create_app  # noqa: E402
-
-from actions import DecisionPipeline  # noqa: E402
-from audit import AuditStore, create_engine, create_schema  # noqa: E402
-from context import build_context  # noqa: E402
-from decisions.jev import JevDecisionProvider  # noqa: E402
-from decisions.registry import load_registry  # noqa: E402
-from github import compute_signature  # noqa: E402
-from github.events import parse_pull_request_event  # noqa: E402
-
 from conftest import RecordingTransport  # noqa: E402
+from decisions.jev import JevDecisionProvider  # noqa: E402
+from github import compute_signature  # noqa: E402
 
 SECRET = "api-test-webhook-secret"
 
@@ -399,7 +391,9 @@ def _strip_js_noise(source: str) -> str:
     out: list[str] = []
     i, n = 0, len(source)
     # Characters after which a "/" is division; anywhere else it opens a regex.
-    after_value = set(")]}") | set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$")
+    after_value = set(")]}") | set(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$"
+    )
 
     def last_significant() -> str:
         for ch in reversed(out):

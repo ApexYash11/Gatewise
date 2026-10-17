@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  # workflow_dispatch lets `gatewise review` dispatch "extended-ci" through the
+  # action executor: the planner's trigger_action names this workflow file.
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -43,6 +46,29 @@ jobs:
 
       - name: Test
         run: pytest -q
+
+  lint:
+    name: Lint (ruff, mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: mypy
+        run: mypy
 
   guard:
     name: Secret and artifact guard

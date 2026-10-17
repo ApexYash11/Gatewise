@@ -16,7 +16,7 @@ import json
 
 import pytest
 import typesafe_sdk
-
+from conftest import RecordingTransport
 from context import build_context
 from decisions.jev import JevDecisionProvider
 from decisions.provider import DecisionUnavailable
@@ -30,8 +30,6 @@ from github import (
     verify_signature,
 )
 from github.dedup import action_fingerprint
-
-from conftest import RecordingTransport
 
 SECRET = "integration-test-webhook-secret"
 

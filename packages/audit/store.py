@@ -18,14 +18,16 @@ Two behaviours are worth calling out because they are easy to get wrong:
 
 from __future__ import annotations
 
+import secrets
+from datetime import UTC, datetime, timedelta
 from typing import Any, Sequence
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from actions.pipeline import EvaluationRun
 from decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
 from github.events import PullRequestEvent
+from sqlalchemy import and_, or_, select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import (
     ActionRecord,
@@ -143,23 +145,33 @@ class AuditStore:
             self._session.add(self._decision_row(name, answer, versions, record.id))
         await self._session.flush()
 
+        # The fingerprint is derived from the context hash, target, and head
+        # commit, so re-evaluating an unchanged pull request (a `synchronize`
+        # with no real content change, or a replay after a restart) produces the
+        # same action identity. That is dedup working, not a failure. The skip
+        # below is racy at read time, so the insert is attempted inside a
+        # savepoint and a lost race collapses to "already recorded" rather than
+        # aborting the transaction.
         for action in actions:
-            # The fingerprint is derived from the context hash, so re-evaluating an
-            # unchanged pull request (a `synchronize` with no real content change,
-            # or a replay after a restart) produces the same action identity. That
-            # is the dedup guarantee working, not a failure: skip rather than
-            # attempt an insert that would violate the unique constraint.
             if await self.has_fingerprint(action["fingerprint"]):
                 continue
-            self._session.add(
-                ActionRecord(
-                    decision_run_id=record.id,
-                    fingerprint=action["fingerprint"],
-                    action_type=action["action_type"],
-                    target=action.get("target"),
-                    status="planned",
-                )
-            )
+            # The IntegrityError is caught *outside* the savepoint: exiting a
+            # savepoint normally on a failed flush leaves the dependency
+            # uncertain, while unwinding through it restores the transaction.
+            try:
+                async with self._session.begin_nested():
+                    self._session.add(
+                        ActionRecord(
+                            decision_run_id=record.id,
+                            fingerprint=action["fingerprint"],
+                            action_type=action["action_type"],
+                            target=action.get("target"),
+                            status="planned",
+                        )
+                    )
+                    await self._session.flush()
+            except IntegrityError:
+                continue
         await self._session.flush()
         return record
 
@@ -250,6 +262,96 @@ class AuditStore:
             select(ActionRecord.id).where(ActionRecord.fingerprint == fingerprint)
         )
         return existing is not None
+
+    async def claim_pending(
+        self, actions: Sequence[dict[str, Any]], *, run_id: int
+    ) -> list[dict[str, Any]]:
+        """Atomically claim the actions this run may perform.
+
+        Every action gets a persisted row (created here when missing, with the
+        dedup rules of :meth:`record_run`), and is then claimed with an
+        ``UPDATE ... WHERE <eligible>`` whose modified row count is the
+        verdict. Two concurrent reviews cannot both own the same row: only one
+        ``UPDATE`` modifies it, and the loser proceeds as if the action had
+        been performed already.
+
+        Eligible statuses: ``planned`` (never executed), and ``failed`` (a
+        former attempt was rejected by GitHub and may be retried). Terminal
+        statuses -- ``performed`` and ``skipped`` -- are never claimed again.
+        A row stuck in ``executing`` (its claiming process died mid-flight) is
+        reclaimed only after its *claim time* goes clearly stale, so a crash
+        cannot suppress an action forever while a live execution stays owned.
+
+        Each claimed action is copied with a ``claim_token`` the caller must
+        pass back to :meth:`mark_action`; a stale worker whose claim was
+        reclaimed cannot settle outcomes onto the newer claim.
+
+        Returns the action dicts belonging to rows this call claimed.
+        """
+        stale = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=24)
+        claimed: list[dict[str, Any]] = []
+        for action in actions:
+            fingerprint = action["fingerprint"]
+            if not await self.has_fingerprint(fingerprint):
+                try:
+                    async with self._session.begin_nested():
+                        self._session.add(
+                            ActionRecord(
+                                decision_run_id=run_id,
+                                fingerprint=fingerprint,
+                                action_type=action["action_type"],
+                                target=action.get("target"),
+                                status="planned",
+                            )
+                        )
+                        await self._session.flush()
+                except IntegrityError:
+                    pass  # A concurrent claim created it first.
+            claim_token = secrets.token_hex(8)
+            claim_update = await self._session.execute(
+                update(ActionRecord)
+                .where(
+                    ActionRecord.fingerprint == fingerprint,
+                    or_(
+                        ActionRecord.status.in_(("planned", "failed")),
+                        and_(
+                            ActionRecord.status == "executing",
+                            ActionRecord.claimed_at < stale,
+                        ),
+                    ),
+                )
+                .values(
+                    status="executing", claimed_at=utcnow(), claim_token=claim_token
+                )
+            )
+            # rowcount exists for UPDATE results; the typed Result stub omits it.
+            if claim_update.rowcount:  # type: ignore[attr-defined]
+                claimed.append({**action, "claim_token": claim_token})
+        await self._session.flush()
+        return claimed
+
+    async def mark_action(
+        self, fingerprint: str, status: str, *, claim_token: str, detail: str = ""
+    ) -> None:
+        """Record the outcome of one claimed action.
+
+        ``performed`` and ``skipped`` close the action's identity permanently
+        (``skipped`` is a designed decline, e.g. the request-review sentinel,
+        so retrying would keep guessing a reviewer); ``failed`` leaves it
+        eligible for a later run. The update matches the claim token, so a
+        reclaimed row owned by a newer claim is never overwritten by the
+        older worker's late result.
+        """
+        await self._session.execute(
+            update(ActionRecord)
+            .where(
+                ActionRecord.fingerprint == fingerprint,
+                ActionRecord.claim_token == claim_token,
+                ActionRecord.status == "executing",
+            )
+            .values(status=status, result=detail or None, completed_at=utcnow())
+        )
+        await self._session.flush()
 
     async def list_recent_decisions(self, limit: int = 100) -> list[Any]:
         """Most recent decisions across all runs, newest first."""

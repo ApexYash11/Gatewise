@@ -8,7 +8,27 @@ Gatewise is pre-1.0. `0.x` releases may change the decision schemas or the API.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`gatewise` CLI.** `packages/review` provides the serverless review loop —
+  `gatewise review owner/name 123` fetches a real pull request, asks the
+  decision model, records every decision evaluation (once the pull request
+  has been fetched and the provider is configured), and performs only the
+  actions it justifies, with the same result a webhook delivery produces.
+  `--no-execute` plans and records without touching GitHub (reads may still
+  be authenticated, so private repositories stay reviewable). Performed and
+  skipped actions for the same content are never performed again; plan-only
+  and failed rows stay claimable by a later run. Stable exit codes for
+  automation: 0 reviewed, 2 usage, 3 decision/model failure, 4 fetch failed,
+  5 not configured, 6 action execution failed.
+- **Action claims are now execution-state-aware.** Action identity includes the
+  target and the head commit (distinct labels never collide; a new head commit
+  re-justifies actions), and performing an action is decided by an atomic
+  claim in the audit store with per-row execution status: performed and skipped
+  actions never repeat, failed ones are retried on a later run, and concurrent
+  reviews cannot double-perform the same action. Claims carry a token, so a
+  reclaimed stale claim can never settle an outcome onto the newer claim.
+- **Linting in CI.** `ruff` and `mypy` over all packages, run as a new CI job.
 
 ## [0.1.0]
 

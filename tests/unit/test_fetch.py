@@ -11,7 +11,6 @@ import json
 
 import httpx
 import pytest
-
 from github import (
     MAX_FILES,
     PullRequestFetchError,

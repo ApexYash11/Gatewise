@@ -27,8 +27,6 @@ from typing import Annotated, Any, Literal, Union
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-
-
 class BaseQuestion(BaseModel):
     """Fields shared by every question type."""
 
@@ -175,7 +173,9 @@ Answer = Annotated[
 ]
 
 
-def normalize_score_levels(legend: Any, probabilities: Any) -> tuple[dict[str, str], dict[str, float]]:
+def normalize_score_levels(
+    legend: Any, probabilities: Any
+) -> tuple[dict[str, str], dict[str, float]]:
     """Coerce upstream level keys to strings.
 
     Jev types these maps as ``dict[int, ...]``. Over the wire -- and in anything we
