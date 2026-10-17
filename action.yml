@@ -156,15 +156,22 @@ runs:
           const owner = context.repo.owner;
           const repo = context.repo.repo;
           const issue_number = context.payload.pull_request.number;
-          const me = await github.rest.users.getAuthenticated();
+          // Ownership must be the token's own author, never "any Bot". The
+          // default GITHUB_TOKEN is an installation token and cannot call
+          // GET /user; its comments are always authored by the well-known
+          // github-actions[bot] account. A caller-supplied user token can
+          // resolve its own login, so match that instead.
+          let login = "github-actions[bot]";
+          try {
+            login = (await github.rest.users.getAuthenticated()).data.login;
+          } catch (error) {
+            core.info(`GET /user unavailable (${error.status}); using the well-known bot login`);
+          }
           const existing = await github.paginate(
             github.rest.issues.listComments, { owner, repo, issue_number });
-          // Match the token's own account, whatever its type: a caller-supplied
-          // user token posts User comments that a Bot-only check would miss,
-          // and another bot's marked comment must never be claimed.
           const owned = existing.find((comment) =>
             comment.body && comment.body.includes(marker) &&
-            comment.user.login === me.data.login);
+            comment.user.login === login);
           if (owned) {
             await github.rest.issues.updateComment({
               owner, repo, comment_id: owned.id, body,

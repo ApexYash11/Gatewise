@@ -68,6 +68,9 @@ def test_pr_number_comes_only_from_the_event(action: dict, steps: list[dict]) ->
     text = ACTION_PATH.read_text(encoding="utf-8")
     assert "${{ github.event.number }}" in text
     assert "$PR" not in text
+    review = step_by_name(steps, "Review the pull request")
+    assert review["env"]["EVENT_NUMBER"] == "${{ github.event.number }}"
+    assert 'gatewise review "$REPOSITORY" "$EVENT_NUMBER"' in review["run"]
     for step in steps:
         if "run" in step:
             for var in ("${{ inputs.", "${{ github.event.", "${{ github.repository }}"):
@@ -88,8 +91,13 @@ def test_comment_step_updates_one_marked_comment(steps: list[dict]) -> None:
     script = comment["with"]["script"]
     assert MARKER in script
     assert "updateComment" in script and "createComment" in script
+    # Ownership resolves the token's own login, falling back to the well-known
+    # installation-token bot when GET /user is unavailable — an uncaught
+    # /user error would abort before any comment is posted.
+    assert "github-actions[bot]" in script
     assert "getAuthenticated" in script
-    assert "comment.user.login" in script and "me.data.login" in script
+    assert "catch" in script
+    assert "comment.user.login" in script and "=== login" in script
 
 
 def test_failed_reviews_comment_first_then_fail(steps: list[dict]) -> None:
