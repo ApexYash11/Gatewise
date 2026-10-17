@@ -34,8 +34,11 @@ incomparable — that is the one failure mode versioning exists to prevent.
    should apply into `criteria`.
 3. Add the question to the YAML. `gatewise/decisions/jev.py` stays generic: the
    provider batches whatever the registry supplies, so nothing there names a
-   specific question. The six-question expectation lives in the tests — update
-   the fixtures and assertions that count questions instead.
+   specific question. Update every inventory of the current set instead: the
+   test fixtures and assertions that count questions, plus the prose that states
+   the count — `AGENTS.md`, `README.md`,
+   `docs/architecture/overview.md`, and the dashboard page
+   (`apps/api/app/static/index.html`).
 4. If the planner (`gatewise/actions/pipeline.py`) should route on it, add a
    *banded* rule; otherwise routing stays policy-free.
 5. Tests: registry validation (`test_registry.py`),
