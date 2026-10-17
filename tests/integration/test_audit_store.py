@@ -6,14 +6,15 @@ import json
 
 import pytest
 import typesafe_sdk
-from actions import DecisionPipeline
-from audit import AuditStore, create_engine, create_schema
 from conftest import RecordingTransport
-from context import build_context
-from decisions.jev import JevDecisionProvider
-from decisions.registry import load_registry
-from github.events import parse_pull_request_event
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from gatewise.actions import DecisionPipeline
+from gatewise.audit import AuditStore, create_engine, create_schema
+from gatewise.context import build_context
+from gatewise.decisions.jev import JevDecisionProvider
+from gatewise.decisions.registry import load_registry
+from gatewise.github.events import parse_pull_request_event
 
 REAL_PAYLOAD = {
     "model": "jev-1.13.0",
@@ -140,8 +141,8 @@ async def test_failed_run_is_recorded_with_its_error(store):
 
 def make_run_and_actions():
     """Two distinct planned actions for the claim tests; no model call needed."""
-    from actions.pipeline import EvaluationRun
-    from github.dedup import action_fingerprint
+    from gatewise.actions.pipeline import EvaluationRun
+    from gatewise.github.dedup import action_fingerprint
 
     run = EvaluationRun(
         repository="octo/repo",

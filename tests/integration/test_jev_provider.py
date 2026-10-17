@@ -12,10 +12,11 @@ import json
 import pytest
 import typesafe_sdk
 from conftest import RecordingTransport
-from decisions.jev import JevDecisionProvider
-from decisions.provider import DecisionUnavailable, DecisionValidationError
-from decisions.registry import load_registry
-from decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
+
+from gatewise.decisions.jev import JevDecisionProvider
+from gatewise.decisions.provider import DecisionUnavailable, DecisionValidationError
+from gatewise.decisions.registry import load_registry
+from gatewise.decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
 
 def make_provider(payload: dict, status_code: int = 200) -> JevDecisionProvider:

@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 
 import pytest
-from github.security import (
+
+from gatewise.github.security import (
     SignatureError,
     compute_signature,
     verify_signature,
@@ -80,7 +81,7 @@ def test_verification_is_constant_time():
     """Guards against a regression to a naive == comparison."""
     import inspect
 
-    from github import security
+    from gatewise.github import security
 
     source = inspect.getsource(security.verify_signature)
     assert "compare_digest" in source, "must use hmac.compare_digest, not =="

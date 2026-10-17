@@ -19,7 +19,7 @@
 - [ ] New behaviour has a test; a bug fix has a test that fails without it.
 - [ ] Tests stub the **network boundary**, not the model's judgement. No test hard-codes "this PR is high risk".
 - [ ] New provider failure modes are covered: timeout, rate limit, authentication, network error, malformed response, missing answer.
-- [ ] If a rubric or question definition changed, the version in `packages/decisions/questions/pull_request.yaml` was **bumped**. Changing a rubric silently changes the meaning of every stored answer.
+- [ ] If a rubric or question definition changed, the version in `gatewise/decisions/questions/pull_request.yaml` was **bumped**. Changing a rubric silently changes the meaning of every stored answer.
 - [ ] No secret, `.env` file, API key, token, private key, or local `*.db` is included.
 - [ ] No demo video or screenshot is committed; those belong in the gitignored `demo/` directory.
 - [ ] Documentation updated if behaviour or setup changed.

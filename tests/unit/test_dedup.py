@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from github.dedup import DeliveryDeduplicator, action_fingerprint
+
+from gatewise.github.dedup import DeliveryDeduplicator, action_fingerprint
 
 
 def test_first_delivery_is_not_a_duplicate():

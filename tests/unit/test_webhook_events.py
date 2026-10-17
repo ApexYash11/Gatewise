@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 
 import pytest
-from github.events import SUPPORTED_ACTIONS, WebhookParseError, parse_pull_request_event
+
+from gatewise.github.events import SUPPORTED_ACTIONS, WebhookParseError, parse_pull_request_event
 
 
 def make_payload(**overrides) -> bytes:
@@ -118,7 +119,7 @@ def test_missing_required_fields_are_rejected(payload, message):
 
 
 def test_oversized_payload_is_rejected():
-    from github.events import MAX_PAYLOAD_BYTES
+    from gatewise.github.events import MAX_PAYLOAD_BYTES
 
     with pytest.raises(WebhookParseError, match="too large"):
         parse_pull_request_event(b"x" * (MAX_PAYLOAD_BYTES + 1), event="pull_request")

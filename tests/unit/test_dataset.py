@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 
 import pytest
-from evaluation import DatasetError, load_dataset
+
+from gatewise.evaluation import DatasetError, load_dataset
 
 
 def write(tmp_path, payload):

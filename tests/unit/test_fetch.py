@@ -11,7 +11,8 @@ import json
 
 import httpx
 import pytest
-from github import (
+
+from gatewise.github import (
     MAX_FILES,
     PullRequestFetchError,
     build_webhook_payload,

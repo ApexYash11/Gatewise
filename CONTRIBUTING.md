@@ -41,7 +41,7 @@ pytest
 ## Working on decisions
 
 Decisions are versioned artifacts in
-`packages/decisions/questions/pull_request.yaml`, identified as `name@version`.
+`gatewise/decisions/questions/pull_request.yaml`, identified as `name@version`.
 
 **Changing a rubric changes the meaning of every stored answer.** Bump the version.
 A silent edit makes historical results quietly incomparable, which is the one failure

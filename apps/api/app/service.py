@@ -20,10 +20,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from actions.pipeline import DecisionPipeline, EvaluationRun
-from audit import AuditStore
-from context.builder import build_context
-from github import (
+from gatewise.actions.pipeline import DecisionPipeline, EvaluationRun
+from gatewise.audit import AuditStore
+from gatewise.context.builder import build_context
+from gatewise.github import (
     DeliveryDeduplicator,
     PullRequestEvent,
     SignatureError,

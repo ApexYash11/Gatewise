@@ -7,13 +7,14 @@ from pathlib import Path
 import httpx
 import pytest
 import typesafe_sdk
-from actions.executor import ActionResult
-from audit import AuditStore, create_engine, create_schema, session_scope
-from config import Settings
 from conftest import RecordingTransport
-from decisions.jev import JevDecisionProvider
-from review.loop import run_review
-from review.render import render_review
+
+from gatewise.actions.executor import ActionResult
+from gatewise.audit import AuditStore, create_engine, create_schema, session_scope
+from gatewise.config import Settings
+from gatewise.decisions.jev import JevDecisionProvider
+from gatewise.review.loop import run_review
+from gatewise.review.render import render_review
 
 
 def make_provider(payload, status_code=200):
@@ -384,7 +385,7 @@ async def test_injection_flags_travel_with_the_result(tmp_path):
 
 
 async def test_fetch_failure_raises(tmp_path):
-    from github.fetch import PullRequestFetchError
+    from gatewise.github.fetch import PullRequestFetchError
 
     with pytest.raises(PullRequestFetchError):
         await run_review(

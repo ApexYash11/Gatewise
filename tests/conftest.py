@@ -9,7 +9,7 @@ import pytest
 
 # Make the packages importable without an editable install.
 ROOT = Path(__file__).resolve().parents[1]
-for candidate in (ROOT / "packages",):
+for candidate in (ROOT,):
     if str(candidate) not in sys.path:
         sys.path.insert(0, str(candidate))
 

@@ -17,11 +17,12 @@ import json
 import pytest
 import typesafe_sdk
 from conftest import RecordingTransport
-from context import build_context
-from decisions.jev import JevDecisionProvider
-from decisions.provider import DecisionUnavailable
-from decisions.registry import load_registry
-from github import (
+
+from gatewise.context import build_context
+from gatewise.decisions.jev import JevDecisionProvider
+from gatewise.decisions.provider import DecisionUnavailable
+from gatewise.decisions.registry import load_registry
+from gatewise.github import (
     DeliveryDeduplicator,
     SignatureError,
     WebhookParseError,
@@ -29,7 +30,7 @@ from github import (
     parse_pull_request_event,
     verify_signature,
 )
-from github.dedup import action_fingerprint
+from gatewise.github.dedup import action_fingerprint
 
 SECRET = "integration-test-webhook-secret"
 

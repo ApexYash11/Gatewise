@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import pytest
-from actions.pipeline import EvaluationRun
-from context import PullRequestContext
-from github.events import PullRequestEvent
-from review.cli import (
+
+from gatewise.actions.pipeline import EvaluationRun
+from gatewise.context import PullRequestContext
+from gatewise.github.events import PullRequestEvent
+from gatewise.review.cli import (
     EXIT_ACTION_FAILED,
     EXIT_DECISION_FAILED,
     EXIT_USAGE,
@@ -14,7 +15,7 @@ from review.cli import (
     main,
     parse_reference,
 )
-from review.loop import ReviewResult
+from gatewise.review.loop import ReviewResult
 
 
 def test_parse_reference_takes_repository_and_number():
@@ -54,7 +55,7 @@ def make_result(*, succeeded: bool, statuses: tuple[str, ...] = ()) -> ReviewRes
         question_versions=[],
     )
     run.status = run.status.SUCCEEDED if succeeded else run.status.FAILED
-    from actions.executor import ActionResult
+    from gatewise.actions.executor import ActionResult
 
     return ReviewResult(
         event=PullRequestEvent(

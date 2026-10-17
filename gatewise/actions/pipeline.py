@@ -25,16 +25,16 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
-from context.builder import PullRequestContext
-from decisions.provider import (
+from gatewise.context.builder import PullRequestContext
+from gatewise.decisions.provider import (
     DecisionProvider,
     DecisionUnavailable,
     DecisionValidationError,
 )
-from decisions.registry import QuestionRegistry
-from decisions.schemas import Answer, NoulAnswer, ScoreAnswer
-from github.dedup import action_fingerprint
-from github.events import PullRequestEvent
+from gatewise.decisions.registry import QuestionRegistry
+from gatewise.decisions.schemas import Answer, NoulAnswer, ScoreAnswer
+from gatewise.github.dedup import action_fingerprint
+from gatewise.github.events import PullRequestEvent
 
 
 class RunStatus(str, Enum):

@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 
 import typesafe_sdk
-from actions import DecisionPipeline, RunStatus, hash_state
 from conftest import RecordingTransport
-from context import build_context
-from decisions.jev import JevDecisionProvider
-from decisions.registry import load_registry
-from github.events import parse_pull_request_event
+
+from gatewise.actions import DecisionPipeline, RunStatus, hash_state
+from gatewise.context import build_context
+from gatewise.decisions.jev import JevDecisionProvider
+from gatewise.decisions.registry import load_registry
+from gatewise.github.events import parse_pull_request_event
 
 SECRET = "pipeline-test-secret"
 

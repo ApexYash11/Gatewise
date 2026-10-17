@@ -8,9 +8,8 @@ a pull request — the review is not a different product depending on the surfac
 
 from __future__ import annotations
 
-from decisions.schemas import ChoiceAnswer, ScoreAnswer
-
-from review.loop import ReviewResult
+from gatewise.decisions.schemas import ChoiceAnswer, ScoreAnswer
+from gatewise.review.loop import ReviewResult
 
 
 def _redact_database_url(url: str) -> str:

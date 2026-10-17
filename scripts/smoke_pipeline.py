@@ -18,12 +18,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from actions import DecisionPipeline
-from config import Settings
-from context import build_context
-from decisions.jev import JevDecisionProvider
-from decisions.registry import load_registry
-from github import compute_signature, parse_pull_request_event, verify_signature
+from gatewise.actions import DecisionPipeline
+from gatewise.config import Settings
+from gatewise.context import build_context
+from gatewise.decisions.jev import JevDecisionProvider
+from gatewise.decisions.registry import load_registry
+from gatewise.github import compute_signature, parse_pull_request_event, verify_signature
 
 SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET") or "local-smoke-secret"
 
@@ -106,7 +106,7 @@ async def main() -> int:
         return 3
 
     print("\ndecisions")
-    from decisions.schemas import ChoiceAnswer, ScoreAnswer
+    from gatewise.decisions.schemas import ChoiceAnswer, ScoreAnswer
 
     for name, answer in run.answers.items():
         if isinstance(answer, ChoiceAnswer):

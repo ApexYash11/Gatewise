@@ -98,7 +98,7 @@ Six versioned questions, batched into a single Jev call:
 | `pr_maintainer_review` | noul | requires maintainer review before merge |
 | `pr_security_review` | noul | affects security or trust boundaries |
 
-Definitions live in [`packages/decisions/questions/pull_request.yaml`](packages/decisions/questions/pull_request.yaml).
+Definitions live in [`gatewise/decisions/questions/pull_request.yaml`](gatewise/decisions/questions/pull_request.yaml).
 
 ## Setup
 
@@ -264,14 +264,14 @@ ships the tooling rather than the binaries. Re-record after changing the UI.
 ## Repository layout
 
 ```
-packages/decisions/   Typed schemas, provider abstraction, Jev provider, registry
-packages/context/     PR context builder and untrusted-input handling
-packages/config/      Environment configuration and secret handling
-packages/github/      Webhook signature verification, deduplication, event parsing
-packages/actions/     Decision pipeline and deterministic action planning
-packages/audit/       SQLAlchemy models and the audit store
-packages/review/      The `gatewise` CLI and the serverless review loop
-packages/evaluation/  Dataset loading with enforced provenance, metrics, runner
+gatewise/decisions/   Typed schemas, provider abstraction, Jev provider, registry
+gatewise/context/     PR context builder and untrusted-input handling
+gatewise/config/      Environment configuration and secret handling
+gatewise/github/      Webhook signature verification, deduplication, event parsing
+gatewise/actions/     Decision pipeline and deterministic action planning
+gatewise/audit/       SQLAlchemy models and the audit store
+gatewise/review/      The `gatewise` CLI and the serverless review loop
+gatewise/evaluation/  Dataset loading with enforced provenance, metrics, runner
 apps/api/             FastAPI service: webhook receiver and read endpoints
 benchmarks/           Seed benchmark dataset (assistant-assessed labels)
 tests/unit/           Schemas, registry, configuration, webhook security, dedup,
@@ -325,11 +325,11 @@ Where to start depends on what interests you:
 
 | Interest | Good first step |
 | --- | --- |
-| Decision schemas and rubrics | `packages/decisions/questions/pull_request.yaml` |
-| Provider and transport | `packages/decisions/provider.py`, `packages/decisions/jev.py` |
-| Untrusted-input isolation | `packages/context/`, then `tests/adversarial/` |
+| Decision schemas and rubrics | `gatewise/decisions/questions/pull_request.yaml` |
+| Provider and transport | `gatewise/decisions/provider.py`, `gatewise/decisions/jev.py` |
+| Untrusted-input isolation | `gatewise/context/`, then `tests/adversarial/` |
 | Dashboard and UI | `apps/api/app/static/` |
-| Evaluation and metrics | `packages/evaluation/` |
+| Evaluation and metrics | `gatewise/evaluation/` |
 
 Two things to know before you change anything:
 

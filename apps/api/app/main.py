@@ -24,21 +24,22 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from actions.pipeline import DecisionPipeline
-from audit import AuditStore, create_engine, create_schema, session_scope
-from config import Settings
-from context import build_context
-from decisions.jev import JevDecisionProvider
-from decisions.registry import load_registry
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from github import (
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from gatewise.actions.pipeline import DecisionPipeline
+from gatewise.audit import AuditStore, create_engine, create_schema, session_scope
+from gatewise.config import Settings
+from gatewise.context import build_context
+from gatewise.decisions.jev import JevDecisionProvider
+from gatewise.decisions.registry import load_registry
+from gatewise.github import (
     DeliveryDeduplicator,
     PullRequestFetchError,
     validate_repository,
 )
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from .schemas import (
     DecisionResult,
@@ -469,7 +470,7 @@ def _run_fields(run) -> dict:
 
 
 def _decisions_to_dicts(answers: dict) -> list[dict]:
-    from decisions.schemas import ChoiceAnswer, ScoreAnswer
+    from gatewise.decisions.schemas import ChoiceAnswer, ScoreAnswer
 
     out = []
     for name, answer in answers.items():
