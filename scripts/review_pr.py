@@ -7,7 +7,7 @@ This is a thin launcher for the installed command:
 
     gatewise review ApexYash11/Gatewise 1
 
-The full loop lives in ``packages/review``: fetch the real pull request,
+The full loop lives in ``gatewise.review``: fetch the real pull request,
 build the isolated context, ask the real Jev model, record the run, then
 perform only the actions the run justifies. Fetching a public repository
 needs no token; performing actions does. Exit codes: 0 reviewed, 2 usage,
@@ -19,9 +19,9 @@ import sys
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_ROOT / "packages"))
+sys.path.insert(0, str(_ROOT))
 
-from review.cli import main  # noqa: E402
+from gatewise.review.cli import main  # noqa: E402
 
 if __name__ == "__main__":
     # The CLI routes through subcommands; the script always means "review".

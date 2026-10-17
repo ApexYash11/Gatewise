@@ -28,7 +28,7 @@ safely drive an action.
 ## Package layout
 
 ```
-packages/
+gatewise/
 ├── decisions/     Typed schemas, provider abstraction, Jev provider, versioned registry
 ├── context/       PR context construction and the untrusted-input boundary
 ├── config/        Environment configuration and secret handling
@@ -75,7 +75,7 @@ faithfully. They never simulate model judgement.
 ## Versioned questions
 
 Every question is a versioned artifact defined in
-`packages/decisions/questions/pull_request.yaml` and identified as `name@version`
+`gatewise/decisions/questions/pull_request.yaml` and identified as `name@version`
 (for example `pr_risk@1`). Versioning is not bookkeeping: changing a rubric changes
 the *meaning* of stored results, so historical answers would silently become
 incomparable. Bump the version, or do not change the rubric.
@@ -151,7 +151,7 @@ Implemented and tested (264 tests):
   accounting.
 
 Also implemented: the dashboard (index, filters, decision graph, and an
-on-demand review form), and the serverless review loop (`packages/review`)
+on-demand review form), and the serverless review loop (`gatewise/review`)
 exposed as the `gatewise` CLI — the same fetch, decide, and record path a
 webhook delivery produces, callable without a server (`gatewise review
 owner/name 123`), with optional *execution* of the actions the run justifies

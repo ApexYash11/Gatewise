@@ -22,15 +22,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from config import Settings
-from decisions.jev import JevDecisionProvider
-from decisions.provider import DecisionUnavailable
-from decisions.registry import load_registry
-from decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
+from gatewise.config import Settings
+from gatewise.decisions.jev import JevDecisionProvider
+from gatewise.decisions.provider import DecisionUnavailable
+from gatewise.decisions.registry import load_registry
+from gatewise.decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
 
 async def main() -> int:
-    from context import build_context
+    from gatewise.context import build_context
 
     # .env is loaded at import time above. Note that an ambient environment
     # variable takes precedence over .env, so print which one is in use.

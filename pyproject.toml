@@ -1,14 +1,17 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "gatewise"
-version = "0.1.0"
+# One version source: gatewise.__version__; `dynamic` keeps pyproject aligned
+# with what `importlib` reports and what the API version string shows.
+dynamic = ["version"]
 description = "Decision infrastructure for autonomous software engineering, powered by typed System-1 decision models."
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 
 dependencies = [
     "typesafe-sdk>=0.7.2",
@@ -26,19 +29,28 @@ dependencies = [
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "aiosqlite>=0.20", "ruff>=0.8", "mypy>=1.13"]
 
 [project.scripts]
-gatewise = "review.cli:main"
+gatewise = "gatewise.review.cli:main"
 
 [tool.setuptools]
-package-dir = { "" = "packages" }
+# The gatewise namespace sits at the repository root, so the default
+# discovery root is used.
 
 [tool.setuptools.packages.find]
-where = ["packages"]
-include = ["decisions*", "context*", "github*", "actions*", "audit*", "evaluation*", "config*", "review*"]
+include = ["gatewise*"]
+
+# The registry YAMLs must ship: load_registry() reads questions from the
+# installed package, and a wheel without them is broken at review time —
+# the exact kind of packaging failure a tag cannot undo.
+[tool.setuptools.package-data]
+"gatewise.decisions" = ["questions/*.yaml"]
+
+[tool.setuptools.dynamic]
+version = { attr = "gatewise.__version__" }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-pythonpath = ["packages"]
+pythonpath = ["."]
 filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.ruff]
@@ -55,7 +67,6 @@ select = ["E", "F", "W", "I"]
 
 [tool.mypy]
 python_version = "3.12"
-packages = ["actions", "audit", "config", "context", "decisions", "github", "review", "evaluation"]
+files = ["gatewise"]
 check_untyped_defs = true
 ignore_missing_imports = true
-mypy_path = "packages"

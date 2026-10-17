@@ -18,13 +18,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from actions import DecisionPipeline  # noqa: E402
-from audit import AuditStore, create_engine, create_schema, session_scope  # noqa: E402
-from config import Settings  # noqa: E402
-from context import build_context  # noqa: E402
-from decisions.jev import JevDecisionProvider  # noqa: E402
-from decisions.registry import load_registry  # noqa: E402
-from github import parse_pull_request_event  # noqa: E402
+from gatewise.actions import DecisionPipeline  # noqa: E402
+from gatewise.audit import AuditStore, create_engine, create_schema, session_scope  # noqa: E402
+from gatewise.config import Settings  # noqa: E402
+from gatewise.context import build_context  # noqa: E402
+from gatewise.decisions.jev import JevDecisionProvider  # noqa: E402
+from gatewise.decisions.registry import load_registry  # noqa: E402
+from gatewise.github import parse_pull_request_event  # noqa: E402
 
 DB_URL = os.environ.get("DATABASE_URL") or "sqlite+aiosqlite:///./gatewise.db"
 
@@ -128,7 +128,7 @@ async def main() -> int:
     print(f"provider : {provider.name} / {provider.model} via {provider.transport}")
     print(f"database : {DB_URL}\n")
 
-    from decisions.schemas import ChoiceAnswer, ScoreAnswer
+    from gatewise.decisions.schemas import ChoiceAnswer, ScoreAnswer
 
     for case in CASES:
         event = parse_pull_request_event(payload_for(case), event="pull_request")

@@ -11,11 +11,12 @@ from __future__ import annotations
 import json
 
 import pytest
-from decisions.provider import DecisionUnavailable
-from decisions.registry import load_registry
-from decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
-from evaluation import Dataset, load_dataset, run_dataset
-from evaluation.runner import compare
+
+from gatewise.decisions.provider import DecisionUnavailable
+from gatewise.decisions.registry import load_registry
+from gatewise.decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
+from gatewise.evaluation import Dataset, load_dataset, run_dataset
+from gatewise.evaluation.runner import compare
 
 REGISTRY = load_registry()
 

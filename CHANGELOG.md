@@ -10,7 +10,17 @@ Gatewise is pre-1.0. `0.x` releases may change the decision schemas or the API.
 
 ### Added
 
-- **`gatewise` CLI.** `packages/review` provides the serverless review loop —
+- **`gatewise.*` namespace (breaking; the gate for PyPI).** The packages used
+  to install as top-level import names (`github`, `actions`, `config`, ...),
+  which collide with existing PyPI packages; everything now installs and
+  imports under `gatewise.*` (`gatewise.decisions`, `gatewise.review`, ...).
+  The package version moves to `0.2.0` accordingly, while decision records
+  keep their own `name@version` identity.
+- **Release workflow.** Builds the sdist and wheel, installs the wheel into
+  a clean environment, smoke-imports the package and CLI, and publishes on
+  `v*` tags via GitHub Actions trusted publishing (no PyPI token stored in
+  the repository).
+- **`gatewise` CLI.** `gatewise.review` provides the serverless review loop —
   `gatewise review owner/name 123` fetches a real pull request, asks the
   decision model, records every decision evaluation (once the pull request
   has been fetched and the provider is configured), and performs only the

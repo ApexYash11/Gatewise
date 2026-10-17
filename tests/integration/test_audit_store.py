@@ -6,14 +6,20 @@ import json
 
 import pytest
 import typesafe_sdk
-from actions import DecisionPipeline
-from audit import AuditStore, create_engine, create_schema
 from conftest import RecordingTransport
-from context import build_context
-from decisions.jev import JevDecisionProvider
-from decisions.registry import load_registry
-from github.events import parse_pull_request_event
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from gatewise.actions import DecisionPipeline
+from gatewise.audit import (
+    AuditStore,
+    create_engine,
+    create_schema,
+    session_scope,
+)
+from gatewise.context import build_context
+from gatewise.decisions.jev import JevDecisionProvider
+from gatewise.decisions.registry import load_registry
+from gatewise.github.events import parse_pull_request_event
 
 REAL_PAYLOAD = {
     "model": "jev-1.13.0",
@@ -140,8 +146,8 @@ async def test_failed_run_is_recorded_with_its_error(store):
 
 def make_run_and_actions():
     """Two distinct planned actions for the claim tests; no model call needed."""
-    from actions.pipeline import EvaluationRun
-    from github.dedup import action_fingerprint
+    from gatewise.actions.pipeline import EvaluationRun
+    from gatewise.github.dedup import action_fingerprint
 
     run = EvaluationRun(
         repository="octo/repo",
@@ -230,34 +236,51 @@ async def test_marked_failed_stays_eligible(store):
     assert [a["fingerprint"] for a in retry] == [a["fingerprint"] for a in actions]
 
 
-async def test_wrong_claim_token_cannot_settle(store):
-    """A stale worker cannot overwrite the newer claim that owns the row."""
-    audit, _ = store
+async def test_stale_worker_cannot_settle_onto_a_newer_claim(store):
+    """A reclaimed row ignores results from the dead worker's old token.
+
+    Full sequence: claim (token A) -> A's claim goes stale and another worker
+    reclaims the row through the real reclaim path (token B) -> A's late
+    result must leave the row executing; only B settles it.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import text
+
+    audit, session = store
     run, actions = make_run_and_actions()
     event = make_event()
     record = await audit.record_run(event, run)
     claimed = await audit.claim_pending(actions, run_id=record.id)
     assert len(claimed) == 2
+    worker_a_token = claimed[0]["claim_token"]
+    fingerprint = claimed[0]["fingerprint"]
 
-    for action in claimed:
-        await audit.mark_action(
-            action["fingerprint"],
-            "performed",
-            claim_token="a-lost-token-from-a-dead-worker",
-        )
-    rows = {row.fingerprint: row for row in await audit.get_actions(record.id)}
-    assert all(row.status == "executing" for row in rows.values()), (
-        "a mismatched token must not settle anything"
+    # Age both rows past the staleness window so a second claim can win.
+    stale = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=25)
+    await session.execute(
+        text("UPDATE actions SET claimed_at = :old"),
+        {"old": stale},
     )
+    await session.commit()
 
-    for action in claimed:
-        await audit.mark_action(
-            action["fingerprint"],
-            "performed",
-            claim_token=action["claim_token"],
-        )
+    # Worker B reclaims through the genuine reclaim path (claim_pending).
+    reclaim = await audit.claim_pending(actions, run_id=record.id)
+    reclaimed = {a["fingerprint"]: a["claim_token"] for a in reclaim}
+    assert fingerprint in reclaimed, "the stale row is reclaimable"
+    assert reclaimed[fingerprint] != worker_a_token
+
+    # The dead worker reports back late with token A.
+    await audit.mark_action(fingerprint, "performed", claim_token=worker_a_token)
     rows = {row.fingerprint: row for row in await audit.get_actions(record.id)}
-    assert all(row.status == "performed" for row in rows.values())
+    assert rows[fingerprint].status == "executing", "a stale token cannot settle"
+
+    # The current owner settles normally.
+    await audit.mark_action(
+        fingerprint, "performed", claim_token=reclaimed[fingerprint]
+    )
+    rows = {row.fingerprint: row for row in await audit.get_actions(record.id)}
+    assert rows[fingerprint].status == "performed"
 
 
 async def test_claim_creates_rows_with_the_run_id(store):
@@ -272,6 +295,47 @@ async def test_claim_creates_rows_with_the_run_id(store):
     assert len(rows) == len(claimed)
     assert all(row.decision_run_id == record.id for row in rows)
     assert all(row.status == "executing" for row in rows)
+
+
+async def test_create_schema_upgrades_existing_audit_databases(tmp_path):
+    """A database predating the claim columns upgrades without losing rows.
+
+    The real-world path: a local gatewise.db written by an earlier version at
+    first use of the claim machinery. ``create_all`` cannot add columns to an
+    existing table; the upgrade path must.
+    """
+    from sqlalchemy import text
+
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'legacy.db'}")
+
+    # A legacy actions table without claimed_at/claim_token, holding one row.
+    async with engine.begin() as connection:
+        await connection.exec_driver_sql(
+            "CREATE TABLE actions ("
+            "id INTEGER PRIMARY KEY, decision_run_id INTEGER, "
+            "fingerprint VARCHAR(64) UNIQUE, action_type VARCHAR(32), "
+            "target VARCHAR(128), status VARCHAR(32), result TEXT, "
+            "created_at TIMESTAMP, completed_at TIMESTAMP)"
+        )
+        await connection.exec_driver_sql(
+            "INSERT INTO actions (fingerprint, action_type, status) "
+            "VALUES ('legacy-fingerprint', 'add_label', 'planned')"
+        )
+
+    await create_schema(engine)
+    # Idempotent: a second pass must not raise or duplicate anything.
+    await create_schema(engine)
+
+    async with session_scope(engine) as session:
+        rows = (
+            await session.execute(
+                text("SELECT fingerprint, claimed_at, claim_token FROM actions")
+            )
+        ).all()
+    await engine.dispose()
+    assert len(rows) == 1, "existing audit data survives the upgrade"
+    assert rows[0][0] == "legacy-fingerprint"
+    assert rows[0][1] is None and rows[0][2] is None
 
 
 async def test_actions_are_persisted_with_fingerprints(store):

@@ -29,10 +29,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from config import Settings  # noqa: E402
-from decisions.jev import JevDecisionProvider  # noqa: E402
-from decisions.registry import load_registry  # noqa: E402
-from evaluation import compare, load_dataset, run_dataset  # noqa: E402
+from gatewise.config import Settings  # noqa: E402
+from gatewise.decisions.jev import JevDecisionProvider  # noqa: E402
+from gatewise.decisions.registry import load_registry  # noqa: E402
+from gatewise.evaluation import compare, load_dataset, run_dataset  # noqa: E402
 
 DEFAULT_DATASET = "benchmarks/pr_triage_seed.json"
 

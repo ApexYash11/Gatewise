@@ -10,7 +10,7 @@ dashboard could record a verdict the real webhook path could never produce.
 Two details are easy to get wrong:
 
 - **Changed files are not in the webhook payload.** GitHub sends a file *count*,
-  not a list, so :func:`packages.github.events.parse_pull_request_event` reads
+  not a list, so :func:`gatewise.github.events.parse_pull_request_event` reads
   ``changed_files_list``, which this module populates from the files endpoint.
   Without that step every pull request looks like it touches no files and the
   file-category questions are asked against an empty list.

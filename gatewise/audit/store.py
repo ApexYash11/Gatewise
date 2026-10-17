@@ -22,12 +22,13 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any, Sequence
 
-from actions.pipeline import EvaluationRun
-from decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
-from github.events import PullRequestEvent
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from gatewise.actions.pipeline import EvaluationRun
+from gatewise.decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
+from gatewise.github.events import PullRequestEvent
 
 from .models import (
     ActionRecord,

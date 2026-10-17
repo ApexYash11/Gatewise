@@ -23,9 +23,9 @@ from __future__ import annotations
 import time
 from typing import Any, Protocol
 
-from decisions.provider import DecisionError
-from decisions.registry import QuestionRegistry
-from decisions.schemas import Answer, ChoiceAnswer, NoulAnswer, ScoreAnswer
+from gatewise.decisions.provider import DecisionError
+from gatewise.decisions.registry import QuestionRegistry
+from gatewise.decisions.schemas import Answer, ChoiceAnswer, NoulAnswer, ScoreAnswer
 
 from .dataset import Case, Dataset
 from .metrics import BinaryCounts, EvaluationReport

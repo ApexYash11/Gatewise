@@ -22,9 +22,9 @@ import asyncio
 import sys
 from typing import Any
 
-from config import Settings
-from github.events import WebhookParseError
-from github.fetch import PullRequestFetchError
+from gatewise.config import Settings
+from gatewise.github.events import WebhookParseError
+from gatewise.github.fetch import PullRequestFetchError
 
 from .loop import run_review
 from .render import render_review

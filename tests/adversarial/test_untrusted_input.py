@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from context import (
+
+from gatewise.context import (
     UNTRUSTED_MARKER,
     build_context,
     detect_injection,

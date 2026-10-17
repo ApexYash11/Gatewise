@@ -21,8 +21,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "api"))
 
 from app.main import create_app  # noqa: E402
 from conftest import RecordingTransport  # noqa: E402
-from decisions.jev import JevDecisionProvider  # noqa: E402
-from github import compute_signature  # noqa: E402
+
+from gatewise.decisions.jev import JevDecisionProvider  # noqa: E402
+from gatewise.github import compute_signature  # noqa: E402
 
 SECRET = "api-test-webhook-secret"
 
@@ -471,8 +472,8 @@ def _stub_github(monkeypatch, *, files=None, pr=None):
     ]
 
     async def fake_fetch(repository, number, *, token=None, client=None):
-        from github import build_webhook_payload, parse_pull_request_event
-        from github.events import PullRequestEvent
+        from gatewise.github import build_webhook_payload, parse_pull_request_event
+        from gatewise.github.events import PullRequestEvent
 
         payload = dict(pull_request)
         payload["number"] = number

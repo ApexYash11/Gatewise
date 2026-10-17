@@ -7,8 +7,9 @@ by comparing it to itself.
 from __future__ import annotations
 
 import pytest
-from evaluation import BinaryCounts, brier_score, mean_absolute_error
-from evaluation.metrics import _percentile
+
+from gatewise.evaluation import BinaryCounts, brier_score, mean_absolute_error
+from gatewise.evaluation.metrics import _percentile
 
 
 def test_confusion_counts_are_computed_correctly():

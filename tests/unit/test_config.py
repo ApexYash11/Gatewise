@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from config import Settings
+
+from gatewise.config import Settings
 
 
 @pytest.fixture(autouse=True)

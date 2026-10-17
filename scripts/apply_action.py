@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from actions import GitHubActionExecutor  # noqa: E402
+from gatewise.actions import GitHubActionExecutor  # noqa: E402
 
 LABEL_COLORS = {
     "risk:high": "B60205",

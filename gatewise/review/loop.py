@@ -23,16 +23,17 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
-from actions.executor import ActionResult, GitHubActionExecutor
-from actions.pipeline import DecisionPipeline, EvaluationRun
-from audit import AuditStore, create_engine, create_schema, session_scope
-from config import Settings
-from context import PullRequestContext, build_context
-from decisions.jev import JevDecisionProvider
-from decisions.provider import DecisionProvider
-from decisions.registry import load_registry
-from github.events import PullRequestEvent
-from github.fetch import fetch_pull_request
+
+from gatewise.actions.executor import ActionResult, GitHubActionExecutor
+from gatewise.actions.pipeline import DecisionPipeline, EvaluationRun
+from gatewise.audit import AuditStore, create_engine, create_schema, session_scope
+from gatewise.config import Settings
+from gatewise.context import PullRequestContext, build_context
+from gatewise.decisions.jev import JevDecisionProvider
+from gatewise.decisions.provider import DecisionProvider
+from gatewise.decisions.registry import load_registry
+from gatewise.github.events import PullRequestEvent
+from gatewise.github.fetch import fetch_pull_request
 
 
 @dataclass

@@ -11,8 +11,8 @@ import sys
 
 sys.path.insert(0, "packages")
 
-from decisions.jev import JevDecisionProvider
-from decisions.registry import load_registry
+from gatewise.decisions.jev import JevDecisionProvider
+from gatewise.decisions.registry import load_registry
 
 
 async def main() -> int:

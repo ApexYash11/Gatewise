@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import pytest
 import yaml
-from decisions.provider import DecisionValidationError
-from decisions.registry import load_registry
-from decisions.schemas import ChoiceQuestion, NoulQuestion, ScoreQuestion
+
+from gatewise.decisions.provider import DecisionValidationError
+from gatewise.decisions.registry import load_registry
+from gatewise.decisions.schemas import ChoiceQuestion, NoulQuestion, ScoreQuestion
 
 MVP_QUESTIONS = [
     "pr_category",
