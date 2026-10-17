@@ -44,7 +44,7 @@ Work continues only after the decision is recorded on that issue.
 |---|---|---|
 | #2 | CLI + lint CI (phase 0) | merged (PR #3) |
 | #4 | PyPI packaging (phase 1) | merged (PR #12) |
-| #6 | GitHub Action (phase 2) | pending |
+| #6 | GitHub Action (phase 2) | PR #14 open for review |
 | #5 | npm skill package (phase 3) | pending |
 | #7 | Human-labelled dataset (phase 4) | parallel, small set |
 

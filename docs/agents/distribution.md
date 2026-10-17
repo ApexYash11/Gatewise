@@ -9,7 +9,7 @@ How Gatewise reaches users: four installable surfaces, one decision layer. The
 |---|---|---|---|
 | PyPI CLI `gatewise` | `gatewise review owner/name 123` | merged (PR #3) | #2 |
 | PyPI package `pip install gatewise` | wheel + release workflow ready (PR #12); publish needs the pypi.org pending publisher | merged | #4 |
-| GitHub Action | one workflow YAML + secret per repo | planned | #6 |
+| GitHub Action | one workflow YAML + secret per repo | in review (PR #14) | #6 |
 | npm skill/plugin for coding agents | `cmd skills add ApexYash11/Gatewise` style | planned | #5 |
 | Human-labelled evaluation dataset | evidence, not an install | parallel | #7 |
 
@@ -39,8 +39,12 @@ pending publisher on pypi.org for project `gatewise` before any `v*` tag.
 and pull-request number taken from the pull-request event (never an
 undefined shell variable); posts/updates one triage comment (renderer in
 `gatewise.review.render` is the shared report so it is not a separate
-codebase); applies the planned actions only. Composite or docker run
-wrapping the Phase-1 wheel.
+codebase); applies the planned actions only. Composite installing the
+packaged distribution, with the review's exit code captured and re-raised
+after the comment posts — a failed run still comments first (exit 3/4/5/6),
+then fails loudly. `tests/unit/test_action.py` pins the contract: ordered
+steps, pinned action refs, one marked Bot comment, secrets only via
+inputs, least-privilege permissions documented in the file header.
 
 ## npm skill shape (phase 3)
 

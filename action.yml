@@ -1,0 +1,189 @@
+name: Gatewise PR triage
+description: >-
+  Review one pull request with the Gatewise decision layer and post the triage
+  report as a PR comment. A model failure fails the run loudly; it never
+  produces a default verdict.
+author: ApexYash11
+
+# Consumer contract: the calling workflow grants least privilege
+# (pull-requests: write, issues: write, contents: read) and passes secrets
+# only as action inputs. Composite steps only ever read inputs through the
+# step environment — never interpolated into the script text — so a crafted
+# caller value cannot break out of a quoted variable.
+#
+# For forked pull requests, `pull_request` gives the automatic token read-only
+# access and withholds caller secrets; use `pull_request_target` instead, with
+# a token that may write, and never check out or execute the fork's code:
+#
+#   on:
+#     pull_request_target:
+#       types: [opened, synchronize, reopened]
+#   permissions:
+#     pull-requests: write
+#     issues: write
+#     contents: read
+#   steps:
+#     - uses: ApexYash11/Gatewise@v0.2.0
+#       with:
+#         github-token: ${{ secrets.GITHUB_TOKEN }}
+#         typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
+
+branding:
+  icon: git-pull-request
+  color: blue
+
+inputs:
+  github-token:
+    description: >-
+      Token used to fetch the pull request and to perform the actions the run
+      justifies. Falls back to the workflow's automatic token.
+    required: false
+    default: ${{ github.token }}
+  jev-api-key:
+    description: >-
+      Deprecated alias for typesafe-api-key. Set one of the two model keys;
+      when both are set, typesafe-api-key wins (it is the canonical key the
+      SDK reads).
+    required: false
+    default: ""
+  typesafe-api-key:
+    description: >-
+      Decision-model key in TYPESAFE_API_KEY form. One model key is required;
+      nothing runs without one.
+    required: false
+    default: ""
+  openrouter-api-key:
+    description: >-
+      Decision-model key reaching the same Jev model through OpenRouter.
+      Alternative to typesafe-api-key when only one key is configured.
+    required: false
+    default: ""
+  package:
+    description: >-
+      Distribution to install: `pypi` (default, `pip install gatewise`) or a
+      local path such as `${{ github.action_path }}` to install this checkout.
+    required: false
+    default: pypi
+  python-version:
+    description: Python version used to run the review.
+    required: false
+    default: "3.12"
+
+runs:
+  using: composite
+  steps:
+    - name: Validate inputs
+      shell: bash
+      env:
+        TYPESAFE_API_KEY_INPUT: ${{ inputs.typesafe-api-key }}
+        JEV_API_KEY_INPUT: ${{ inputs.jev-api-key }}
+        OPENROUTER_API_KEY_INPUT: ${{ inputs.openrouter-api-key }}
+        EVENT_NUMBER: ${{ github.event.number }}
+      run: |
+        if [ -z "$TYPESAFE_API_KEY_INPUT$JEV_API_KEY_INPUT$OPENROUTER_API_KEY_INPUT" ]; then
+          echo "::error::Set typesafe-api-key (or its jev-api-key alias) or openrouter-api-key. Gatewise fails loudly without a decision-model key; there is no default verdict."
+          exit 1
+        fi
+        if [ -z "$EVENT_NUMBER" ]; then
+          echo "::error::gatewise-action only runs on pull_request events: the PR number must come from the pull-request event payload."
+          exit 1
+        fi
+
+    - name: Set up Python
+      # Pinned to the reviewed release commit, not the moving major tag: a tag
+      # can be repointed at code the token never approved.
+      uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install Gatewise
+      shell: bash
+      env:
+        PACKAGE_INPUT: ${{ inputs.package }}
+      run: |
+        python -m pip install --upgrade pip
+        if [ "$PACKAGE_INPUT" = "pypi" ]; then
+          pip install gatewise
+        else
+          pip install "$PACKAGE_INPUT"
+        fi
+
+    - name: Review the pull request
+      id: review
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        # Canonical key first: when both are set, typesafe-api-key wins and the
+        # alias is only a fallback. Never concatenated — that would forge one
+        # invalid credential out of two valid ones.
+        TYPESAFE_API_KEY: ${{ inputs.typesafe-api-key || inputs.jev-api-key }}
+        OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
+        REPOSITORY: ${{ github.repository }}
+        EVENT_NUMBER: ${{ github.event.number }}
+      # The review step must never abort the composite before the triage
+      # comment is posted: its exit code is captured and re-raised later, so a
+      # failed run (exit 3/4/5/6) still lands on the PR as a comment first.
+      run: |
+        set +e
+        gatewise review "$REPOSITORY" "$EVENT_NUMBER" \
+          > "$RUNNER_TEMP/gatewise-review.txt" 2>&1
+        echo "exit-code=$?" >> "$GITHUB_OUTPUT"
+        # stdout alone can be empty when the CLI reports through stderr; the
+        # comment step must never replace the triage report with a bare marker.
+        if [ ! -s "$RUNNER_TEMP/gatewise-review.txt" ]; then
+          echo "Gatewise review produced no report output." \
+            > "$RUNNER_TEMP/gatewise-review.txt"
+        fi
+
+    - name: Post the triage comment
+      # Once the review step has run, always — even on its failure, so the
+      # failure lands as a comment rather than silence. Skipped when the
+      # review never ran (validation/install failure), where there is no
+      # report file to post and the earlier error is the useful diagnostic.
+      if: always() && steps.review.outcome != 'skipped'
+      # Pinned to the reviewed release commit, not the moving major tag.
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          // The CLI's review report is the comment body verbatim; this step
+          // only adds the marker that identifies the Gatewise triage comment.
+          const fs = require("fs");
+          const marker = "<!-- gatewise-triage -->";
+          const report = fs.readFileSync(
+            `${process.env.RUNNER_TEMP}/gatewise-review.txt`, "utf8");
+          const body = `${marker}\n${report}`;
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const issue_number = context.payload.pull_request.number;
+          // Ownership must be the token's own author, never "any Bot". The
+          // default GITHUB_TOKEN is an installation token and cannot call
+          // GET /user; its comments are always authored by the well-known
+          // github-actions[bot] account. A caller-supplied user token can
+          // resolve its own login, so match that instead.
+          let login = "github-actions[bot]";
+          try {
+            login = (await github.rest.users.getAuthenticated()).data.login;
+          } catch (error) {
+            core.info(`GET /user unavailable (${error.status}); using the well-known bot login`);
+          }
+          const existing = await github.paginate(
+            github.rest.issues.listComments, { owner, repo, issue_number });
+          const owned = existing.find((comment) =>
+            comment.body && comment.body.includes(marker) &&
+            comment.user.login === login);
+          if (owned) {
+            await github.rest.issues.updateComment({
+              owner, repo, comment_id: owned.id, body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner, repo, issue_number, body,
+            });
+          }
+
+    - name: Fail the run when the review failed
+      if: always()
+      shell: bash
+      run: |
+        exit ${{ steps.review.outputs.exit-code }}
