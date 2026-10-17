@@ -84,8 +84,10 @@ def action_fingerprint(
     or a concurrent review can detect that the action was already performed
     (or already claimed). Two labels on the same run must never collide, so the
     target is part of the identity, and a new head commit is new content, so
-    the head SHA is too. Excludes any timestamp or random component, which
-    would make every attempt look new.
+    the head SHA is too. Components are length-prefixed before hashing, so the
+    encoding is injective and a crafted value in one field cannot blend into
+    another. Excludes any timestamp or random component, which would make
+    every attempt look new.
     """
     parts = (
         str(repository),
@@ -95,4 +97,9 @@ def action_fingerprint(
         str(decision_run_id),
         str(head_sha),
     )
-    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:32]
+    # Length-prefixing keeps the encoding injective: a plain separator could
+    # blend adjacent fields, and two distinct inputs hashing alike would skip
+    # one of them as a duplicate forever, which is the worst failure mode a
+    # dedup identifier can have.
+    payload = "".join(f"{len(part)}:{part}" for part in parts)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]

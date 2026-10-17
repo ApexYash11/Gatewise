@@ -8,6 +8,7 @@ import httpx
 import pytest
 import typesafe_sdk
 from actions.executor import ActionResult
+from audit import AuditStore, create_engine, create_schema, session_scope
 from config import Settings
 from conftest import RecordingTransport
 from decisions.jev import JevDecisionProvider
@@ -95,20 +96,29 @@ LOW_RISK_PAYLOAD = {
 
 
 class RecordingExecutor:
-    """Stand-in for GitHubActionExecutor: records, never touches GitHub."""
+    """Stand-in for GitHubActionExecutor: records, never touches GitHub.
+
+    Mirrors the real executor's sentinel rule: the planner's ``request-review``
+    target is not a reviewer, so it is skipped rather than reported as
+    performed. Without this, the loop tests would mark a non-write as applied
+    and could never catch mishandled skipped actions.
+    """
+
+    SKIPPED_SENTINELS = {
+        ("request_review", "request-review"),
+    }
 
     def __init__(self, status: str = "performed") -> None:
         self.status = status
-        self.performed: list[tuple[str, int, str, str]] = []
+        self.attempts: list[tuple[str, int, str, str]] = []
         self.closed = False
 
     async def perform(self, action, *, repository: str, number: int) -> ActionResult:
-        self.performed.append(
-            (repository, number, action["action_type"], action["target"])
-        )
-        return ActionResult(
-            action["action_type"], self.status, str(action["target"])
-        )
+        identity = (repository, number, action["action_type"], action["target"])
+        self.attempts.append(identity)
+        if (action["action_type"], action["target"]) in self.SKIPPED_SENTINELS:
+            return ActionResult(action["action_type"], "skipped", identity[3])
+        return ActionResult(action["action_type"], self.status, identity[3])
 
     async def close(self) -> None:
         self.closed = True
@@ -146,7 +156,7 @@ async def test_success_report_contains_decisions(real_jev_payload, tmp_path):
     report = render_review(result)
     assert "decisions" in report
     assert "risk:high" in report
-    assert "actions applied" not in report, "no token, so nothing was executed"
+    assert "action results" not in report, "no token, so nothing was executed"
 
 
 async def test_quiet_change_plans_no_actions(tmp_path):
@@ -163,17 +173,30 @@ async def test_quiet_change_plans_no_actions(tmp_path):
 
 
 async def test_failed_run_is_recorded_and_authorizes_nothing(tmp_path):
+    settings = make_settings(tmp_path)
     result = await run_review(
         "octo/repo",
         9,
-        settings=make_settings(tmp_path),
+        settings=settings,
         github_client=make_github(),
         decision_provider=make_provider({"error": "credits exhausted"}, 402),
     )
 
     assert not result.run.succeeded
     assert result.actions == []
-    assert (tmp_path / "audit.db").exists(), "failures are recorded, not hidden"
+
+    # The failure must exist as data, not merely as a file: query the audit
+    # store and assert the row.
+    engine = create_engine(settings.database_url)
+    await create_schema(engine)
+    async with session_scope(engine) as session:
+        listed = await AuditStore(session).list_pull_requests()
+        runs = await AuditStore(session).get_runs(listed[0][0].id)
+    await engine.dispose()
+    assert len(runs) == 1
+    assert runs[0].status == "failed"
+    assert "insufficient credits" in (runs[0].error or "")
+
     report = render_review(result)
     assert "no action was authorized" in report
 
@@ -192,14 +215,21 @@ async def test_token_executes_only_the_planned_actions(real_jev_payload, tmp_pat
 
     assert result.token_used is True
     assert executor.closed is True
-    performed = {(r, n, kind, target) for r, n, kind, target in executor.performed}
-    assert performed == {
+    attempted = {(r, n, kind, target) for r, n, kind, target in executor.attempts}
+    assert attempted == {
         ("octo/repo", 9, "add_label", "risk:high"),
         ("octo/repo", 9, "trigger_workflow", "extended-ci"),
         ("octo/repo", 9, "request_review", "request-review"),
     }
+    statuses = {a.detail: a.status for a in result.action_results}
+    assert statuses == {
+        "risk:high": "performed",
+        "extended-ci": "performed",
+        "request-review": "skipped",
+    }, "the sentinel is skipped exactly like the real executor does"
     report = render_review(result)
-    assert "actions applied" in report
+    assert "action results" in report
+    assert "skipped" in report
 
 
 async def test_no_execute_records_but_never_performs(real_jev_payload, tmp_path):
@@ -220,7 +250,7 @@ async def test_no_execute_records_but_never_performs(real_jev_payload, tmp_path)
     assert result.actions, "actions are still planned and recorded"
     assert result.token_used is False
     assert result.action_results == []
-    assert executor.performed == [], "plan-only must not write anything"
+    assert executor.attempts == [], "plan-only must not write anything"
     assert (tmp_path / "audit.db").exists()
 
 
@@ -254,7 +284,7 @@ async def test_planned_without_write_is_claimable_later(real_jev_payload, tmp_pa
     )
 
     assert second.run.succeeded
-    assert len(executor.performed) == 3, "recorded plans can still be executed"
+    assert len(executor.attempts) == 3, "recorded plans can still be executed"
 
 
 async def test_failed_write_is_retried_on_a_later_run(real_jev_payload, tmp_path):
@@ -270,7 +300,7 @@ async def test_failed_write_is_retried_on_a_later_run(real_jev_payload, tmp_path
         decision_provider=make_provider(real_jev_payload),
         action_executor=rejected,
     )
-    assert len(rejected.performed) == 3
+    assert len(rejected.attempts) == 3
     assert first.action_results[0].status == "failed"
 
     retried = RecordingExecutor()
@@ -283,7 +313,12 @@ async def test_failed_write_is_retried_on_a_later_run(real_jev_payload, tmp_path
         decision_provider=make_provider(real_jev_payload),
         action_executor=retried,
     )
-    assert len(retried.performed) == 3, "a failed write is retried"
+    # Two attempts, not three: the failed labels/workflow trigger are retried,
+    # while the skipped request-review sentinel stays terminal by design —
+    # retrying it would keep guessing a reviewer.
+    assert len(retried.attempts) == 2
+    attempted = {(kind, target) for _, _, kind, target in retried.attempts}
+    assert attempted == {("add_label", "risk:high"), ("trigger_workflow", "extended-ci")}
 
 
 async def test_repeated_review_never_reexecutes_recorded_actions(
@@ -316,7 +351,7 @@ async def test_repeated_review_never_reexecutes_recorded_actions(
     assert second.run.succeeded
     assert second.actions, "the run still justifies the same actions"
     assert second.pending_actions == [], "performed claims are closed"
-    assert second_executor.performed == []
+    assert second_executor.attempts == []
 
 
 async def test_token_with_no_actions_runs_plan_only(tmp_path):

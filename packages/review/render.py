@@ -13,6 +13,23 @@ from decisions.schemas import ChoiceAnswer, ScoreAnswer
 from review.loop import ReviewResult
 
 
+def _redact_database_url(url: str) -> str:
+    """Strip credentials from a database URL before it reaches any output.
+
+    ``recorded in : <url>`` is printed to the terminal and later hoisted into a
+    public PR comment. A database URL may embed the password in the userinfo
+    section of its netloc; the userinfo is dropped when present. URLs without
+    a netloc (SQLite-style paths) carry no credentials and pass through.
+    """
+    scheme, separator, rest = url.partition("://")
+    if not separator:
+        return url
+    netloc, _, remainder = rest.partition("/")
+    if "@" in netloc:
+        netloc = netloc.rsplit("@", 1)[1]
+    return f"{scheme}://{netloc}/{remainder}"
+
+
 def render_review(result: ReviewResult, *, execution_note: str | None = None) -> str:
     """Render the complete review report.
 
@@ -61,8 +78,10 @@ def render_review(result: ReviewResult, *, execution_note: str | None = None) ->
         for action in result.actions:
             lines.append(f"  {action['action_type']:16} {action['target']}")
         if result.action_results:
+            # "results", not "applied": skipped and failed outcomes land in
+            # this section too, and they must read as what they are.
             lines.append("")
-            lines.append("actions applied")
+            lines.append("action results")
             for applied in result.action_results:
                 lines.append(f"  {applied.status:10} {applied.action_type:16} {applied.detail}")
         elif execution_note:

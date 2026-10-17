@@ -189,6 +189,7 @@ async def test_claim_is_single_owner(store):
 
     first = await audit.claim_pending(actions, run_id=record.id)
     assert [a["fingerprint"] for a in first] == [a["fingerprint"] for a in actions]
+    assert all("claim_token" in a for a in first), "claims carry their owner token"
 
     second = await audit.claim_pending(actions, run_id=record.id)
     assert second == [], "an executing claim is not claimable again"
@@ -201,7 +202,11 @@ async def test_marked_performed_closes_the_identity(store):
     record = await audit.record_run(event, run)
     claimed = await audit.claim_pending(actions, run_id=record.id)
     for action in claimed:
-        await audit.mark_action(action["fingerprint"], "performed")
+        await audit.mark_action(
+            action["fingerprint"],
+            "performed",
+            claim_token=action["claim_token"],
+        )
 
     again = await audit.claim_pending(actions, run_id=record.id)
     assert again == [], "performed actions never re-execute"
@@ -215,10 +220,44 @@ async def test_marked_failed_stays_eligible(store):
     record = await audit.record_run(event, run)
     claimed = await audit.claim_pending(actions, run_id=record.id)
     for action in claimed:
-        await audit.mark_action(action["fingerprint"], "failed")
+        await audit.mark_action(
+            action["fingerprint"],
+            "failed",
+            claim_token=action["claim_token"],
+        )
 
     retry = await audit.claim_pending(actions, run_id=record.id)
     assert [a["fingerprint"] for a in retry] == [a["fingerprint"] for a in actions]
+
+
+async def test_wrong_claim_token_cannot_settle(store):
+    """A stale worker cannot overwrite the newer claim that owns the row."""
+    audit, _ = store
+    run, actions = make_run_and_actions()
+    event = make_event()
+    record = await audit.record_run(event, run)
+    claimed = await audit.claim_pending(actions, run_id=record.id)
+    assert len(claimed) == 2
+
+    for action in claimed:
+        await audit.mark_action(
+            action["fingerprint"],
+            "performed",
+            claim_token="a-lost-token-from-a-dead-worker",
+        )
+    rows = {row.fingerprint: row for row in await audit.get_actions(record.id)}
+    assert all(row.status == "executing" for row in rows.values()), (
+        "a mismatched token must not settle anything"
+    )
+
+    for action in claimed:
+        await audit.mark_action(
+            action["fingerprint"],
+            "performed",
+            claim_token=action["claim_token"],
+        )
+    rows = {row.fingerprint: row for row in await audit.get_actions(record.id)}
+    assert all(row.status == "performed" for row in rows.values())
 
 
 async def test_claim_creates_rows_with_the_run_id(store):

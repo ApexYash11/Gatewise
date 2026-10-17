@@ -18,6 +18,7 @@ Two behaviours are worth calling out because they are easy to get wrong:
 
 from __future__ import annotations
 
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any, Sequence
 
@@ -154,20 +155,23 @@ class AuditStore:
         for action in actions:
             if await self.has_fingerprint(action["fingerprint"]):
                 continue
-            async with self._session.begin_nested():
-                self._session.add(
-                    ActionRecord(
-                        decision_run_id=record.id,
-                        fingerprint=action["fingerprint"],
-                        action_type=action["action_type"],
-                        target=action.get("target"),
-                        status="planned",
+            # The IntegrityError is caught *outside* the savepoint: exiting a
+            # savepoint normally on a failed flush leaves the dependency
+            # uncertain, while unwinding through it restores the transaction.
+            try:
+                async with self._session.begin_nested():
+                    self._session.add(
+                        ActionRecord(
+                            decision_run_id=record.id,
+                            fingerprint=action["fingerprint"],
+                            action_type=action["action_type"],
+                            target=action.get("target"),
+                            status="planned",
+                        )
                     )
-                )
-                try:
                     await self._session.flush()
-                except IntegrityError:
-                    continue
+            except IntegrityError:
+                continue
         await self._session.flush()
         return record
 
@@ -275,8 +279,12 @@ class AuditStore:
         former attempt was rejected by GitHub and may be retried). Terminal
         statuses -- ``performed`` and ``skipped`` -- are never claimed again.
         A row stuck in ``executing`` (its claiming process died mid-flight) is
-        reclaimed only when it is clearly stale, so a crash can suppress an
-        action forever without becoming invisible to a later, explicit review.
+        reclaimed only after its *claim time* goes clearly stale, so a crash
+        cannot suppress an action forever while a live execution stays owned.
+
+        Each claimed action is copied with a ``claim_token`` the caller must
+        pass back to :meth:`mark_action`; a stale worker whose claim was
+        reclaimed cannot settle outcomes onto the newer claim.
 
         Returns the action dicts belonging to rows this call claimed.
         """
@@ -285,20 +293,21 @@ class AuditStore:
         for action in actions:
             fingerprint = action["fingerprint"]
             if not await self.has_fingerprint(fingerprint):
-                async with self._session.begin_nested():
-                    self._session.add(
-                        ActionRecord(
-                            decision_run_id=run_id,
-                            fingerprint=fingerprint,
-                            action_type=action["action_type"],
-                            target=action.get("target"),
-                            status="planned",
+                try:
+                    async with self._session.begin_nested():
+                        self._session.add(
+                            ActionRecord(
+                                decision_run_id=run_id,
+                                fingerprint=fingerprint,
+                                action_type=action["action_type"],
+                                target=action.get("target"),
+                                status="planned",
+                            )
                         )
-                    )
-                    try:
                         await self._session.flush()
-                    except IntegrityError:
-                        pass  # A concurrent claim created it first.
+                except IntegrityError:
+                    pass  # A concurrent claim created it first.
+            claim_token = secrets.token_hex(8)
             claim_update = await self._session.execute(
                 update(ActionRecord)
                 .where(
@@ -307,31 +316,39 @@ class AuditStore:
                         ActionRecord.status.in_(("planned", "failed")),
                         and_(
                             ActionRecord.status == "executing",
-                            ActionRecord.created_at < stale,
+                            ActionRecord.claimed_at < stale,
                         ),
                     ),
                 )
-                .values(status="executing")
+                .values(
+                    status="executing", claimed_at=utcnow(), claim_token=claim_token
+                )
             )
             # rowcount exists for UPDATE results; the typed Result stub omits it.
             if claim_update.rowcount:  # type: ignore[attr-defined]
-                claimed.append(action)
+                claimed.append({**action, "claim_token": claim_token})
         await self._session.flush()
         return claimed
 
     async def mark_action(
-        self, fingerprint: str, status: str, *, detail: str = ""
+        self, fingerprint: str, status: str, *, claim_token: str, detail: str = ""
     ) -> None:
         """Record the outcome of one claimed action.
 
         ``performed`` and ``skipped`` close the action's identity permanently
         (``skipped`` is a designed decline, e.g. the request-review sentinel,
         so retrying would keep guessing a reviewer); ``failed`` leaves it
-        eligible for a later run.
+        eligible for a later run. The update matches the claim token, so a
+        reclaimed row owned by a newer claim is never overwritten by the
+        older worker's late result.
         """
         await self._session.execute(
             update(ActionRecord)
-            .where(ActionRecord.fingerprint == fingerprint)
+            .where(
+                ActionRecord.fingerprint == fingerprint,
+                ActionRecord.claim_token == claim_token,
+                ActionRecord.status == "executing",
+            )
             .values(status=status, result=detail or None, completed_at=utcnow())
         )
         await self._session.flush()

@@ -11,7 +11,8 @@ The full loop lives in ``packages/review``: fetch the real pull request,
 build the isolated context, ask the real Jev model, record the run, then
 perform only the actions the run justifies. Fetching a public repository
 needs no token; performing actions does. Exit codes: 0 reviewed, 2 usage,
-3 model unavailable, 4 fetch failed, 5 provider not configured.
+3 decision failure, 4 fetch failed, 5 provider not configured, 6 an attempted
+GitHub action failed.
 """
 
 import sys

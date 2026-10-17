@@ -270,6 +270,11 @@ async def test_planned_labels_have_distinct_fingerprints(real_jev_payload):
     run = await pipeline.evaluate(event, make_context(event))
     actions = pipeline.plan_actions(run)
 
+    targets = {action["target"] for action in actions}
+    assert {"risk:high", "security:review"} <= targets, (
+        "the payload must actually justify both labels, or nothing is proven"
+    )
+
     fingerprint_groups = {}
     for action in actions:
         by_type = fingerprint_groups.setdefault(action["action_type"], [])
@@ -293,6 +298,13 @@ async def test_plan_identity_moves_with_the_head_commit(real_jev_payload):
     run = await pipeline.evaluate(event, make_context(event))
     as_first_commit = pipeline.plan_actions(run, head_sha="sha-1")
     as_new_commit = pipeline.plan_actions(run, head_sha="sha-2")
+
+    # A regression that drops actions would make the disjointness check
+    # vacuous, so prove both plans actually carry the expected targets first.
+    expected_targets = {a["target"] for a in as_first_commit}
+    assert as_first_commit and as_new_commit, "both plans must be non-empty"
+    assert {a["target"] for a in as_new_commit} == expected_targets
+    assert expected_targets, "the fixture payload must justify at least one action"
 
     same_commit_again = pipeline.plan_actions(run, head_sha="sha-1")
     assert [a["fingerprint"] for a in as_first_commit] == [

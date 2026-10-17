@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  # workflow_dispatch lets `gatewise review` dispatch "extended-ci" through the
+  # action executor: the planner's trigger_action names this workflow file.
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:

@@ -151,13 +151,15 @@ Implemented and tested (264 tests):
   accounting.
 
 Also implemented: the dashboard (index, filters, decision graph, and an
-on-demand review form), action *execution* against the GitHub API behind an
-explicit `GITHUB_TOKEN`, and the serverless review loop
-(`packages/review`) exposed as the `gatewise` CLI — the same fetch, decide,
-record, and execute path the webhook flow produces, callable without a server
-(`gatewise review owner/name 123`). The product never needs write access to
-produce a decision. A human-labelled benchmark dataset is still missing, so no
-accuracy claim is made.
+on-demand review form), and the serverless review loop (`packages/review`)
+exposed as the `gatewise` CLI — the same fetch, decide, and record path a
+webhook delivery produces, callable without a server (`gatewise review
+owner/name 123`), with optional *execution* of the actions the run justifies
+against the GitHub API behind an explicit `GITHUB_TOKEN`. Webhook deliveries
+plan and record only; executing them happens in the CLI path when a token is
+present. The product never needs write access to produce a decision. A
+human-labelled benchmark dataset is still missing, so no accuracy claim is
+made.
 
 Live runs, reproducible:
 

@@ -8,10 +8,11 @@ Exit codes, stable because automation depends on them:
 
     0  reviewed (and actions performed when a token was available)
     2  usage error: no pull request number could be read
-    3  the decision model failed; the run is recorded, nothing was executed
+    3  a decision or model failure; the run is recorded, nothing was executed
     4  the pull request could not be fetched from GitHub
     5  the decision provider is not configured
-    6  GitHub rejected an attempted action (labels/dispatch); run is recorded
+    6  action execution failed (GitHub rejection or transport error); the run
+       is recorded and failed actions stay retryable on a later run
 """
 
 from __future__ import annotations

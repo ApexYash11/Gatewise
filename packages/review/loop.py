@@ -124,7 +124,9 @@ async def run_review(
             run=run,
             context=context,
             actions=pipeline.plan_actions(run, head_sha=event.head_sha),
-            token_used=token is not None and execute_actions,
+            # Truthiness, not `is not None`: an empty string was never usable
+            # and would leave claimed rows unsettled.
+            token_used=bool(token) and execute_actions,
             database_url=settings.database_url,
         )
 
@@ -135,13 +137,12 @@ async def run_review(
         # later, and a failed write stays claimable while a performed one is
         # closed permanently. A new head commit changes the fingerprint, so
         # re-reviewing new code re-justifies actions on purpose.
-        claimable = result.token_used
         engine = create_engine(settings.database_url)
         await create_schema(engine)
         async with session_scope(engine) as session:
             store = AuditStore(session)
             record = await store.record_run(event, run, result.actions)
-            if claimable:
+            if result.token_used:
                 result.pending_actions = await store.claim_pending(
                     result.actions, run_id=record.id
                 )
@@ -153,19 +154,27 @@ async def run_review(
         executor = action_executor or GitHubActionExecutor(token or "")
         try:
             for action in result.pending_actions:
-                result.action_results.append(
-                    await executor.perform(
+                try:
+                    outcome = await executor.perform(
                         action, repository=event.repository, number=event.number
                     )
-                )
+                except Exception as exc:
+                    # A transport crash must not strand the claim in
+                    # `executing` for a day: settle it as failed now, so the
+                    # action stays retryable and audited on this run's row.
+                    outcome = ActionResult(
+                        action["action_type"], "failed", str(exc)
+                    )
+                result.action_results.append(outcome)
         finally:
             final_close = getattr(executor, "close", None)
             if final_close is not None:
                 await final_close()
 
-        # Settle the claims with what actually happened. Until this runs, a
-        # claimed row reads as in-flight; after it, only failures stay
-        # claimable.
+        # Settle the claims with what actually happened, under each action's
+        # own claim token: a reclaimed row owned by a newer claim is never
+        # overwritten by this run's late result. After settlement only
+        # failures stay claimable.
         result_engine = create_engine(settings.database_url)
         await create_schema(result_engine)
         async with session_scope(result_engine) as session:
@@ -174,7 +183,10 @@ async def run_review(
                 result.pending_actions, result.action_results
             ):
                 await store.mark_action(
-                    action["fingerprint"], applied.status, detail=applied.detail
+                    action["fingerprint"],
+                    applied.status,
+                    claim_token=action["claim_token"],
+                    detail=applied.detail,
                 )
         await result_engine.dispose()
 
