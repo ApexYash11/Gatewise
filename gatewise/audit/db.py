@@ -12,6 +12,7 @@ from typing import AsyncIterator
 
 from sqlalchemy import inspect
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -57,9 +58,27 @@ async def create_schema(engine: AsyncEngine) -> None:
                 continue
             if column in existing[table]:
                 continue
-            await connection.exec_driver_sql(
-                f"ALTER TABLE {table} ADD COLUMN {column} {column_type} NULL"
-            )
+            try:
+                await connection.exec_driver_sql(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {column_type} NULL"
+                )
+            except SQLAlchemyError as exc:
+                # Two workers can upgrade the same old database: both see the
+                # column missing, the loser's ALTER fails with the duplicate
+                # error. That outcome *is* the successful migration, so it is
+                # tolerated; anything else propagates and aborts startup
+                # visibly.
+                text = str(exc).lower()
+                if "duplicate column" not in text and "already exists" not in text:
+                    raise
+        # Legacy rows already mid-execution at upgrade time have a NULL claim
+        # time, so the stale-reclaim predicate would never match and they
+        # could never be retried. Stamp them now: they become reclaimable
+        # after the staleness window instead of being trapped forever.
+        await connection.exec_driver_sql(
+            "UPDATE actions SET claimed_at = CURRENT_TIMESTAMP "
+            "WHERE status = 'executing' AND claimed_at IS NULL"
+        )
 
 
 def _columns_by_table(sync_connection: Connection) -> dict[str, set[str]]:
