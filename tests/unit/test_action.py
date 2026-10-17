@@ -94,7 +94,7 @@ def test_comment_step_updates_one_marked_comment(steps: list[dict]) -> None:
     # Ownership resolves the token's own login, falling back to the well-known
     # installation-token bot when GET /user is unavailable — an uncaught
     # /user error would abort before any comment is posted.
-    assert "github-actions[bot]" in script
+    assert 'let login = "github-actions[bot]";' in script
     assert "getAuthenticated" in script
     assert "catch" in script
     assert "comment.user.login" in script and "=== login" in script
