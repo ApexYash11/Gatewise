@@ -43,7 +43,7 @@ class ReviewResult:
     run: EvaluationRun
     context: PullRequestContext
     actions: list[dict[str, Any]] = field(default_factory=list)
-    #: The planned actions not already on record from a previous run — the
+    #: The actions whose persisted rows this run claimed atomically — the
     #: subset this loop is actually allowed to perform.
     pending_actions: list[dict[str, Any]] = field(default_factory=list)
     action_results: list[ActionResult] = field(default_factory=list)
@@ -123,37 +123,33 @@ async def run_review(
             event=event,
             run=run,
             context=context,
-            actions=pipeline.plan_actions(run),
+            actions=pipeline.plan_actions(run, head_sha=event.head_sha),
             token_used=token is not None and execute_actions,
             database_url=settings.database_url,
         )
 
-        # Record first (the audit truth), then determine what is genuinely new:
-        # an unchanged pull request replans the same fingerprints, so anything
-        # recorded by a previous run must not be performed again. Checking
-        # pre-existence inside the same session the insert happens in keeps the
-        # audit store the single authority on what executed.
-        eligible: list[dict[str, Any]] = []
+        # Record first (the audit truth). Perform only what this run can claim
+        # atomically in the audit store: the claim UPDATE winning rowcount is
+        # the eligibility verdict, so two concurrent reviews cannot both perform
+        # the same action, a `--no-execute` run leaves rows ready to claim
+        # later, and a failed write stays claimable while a performed one is
+        # closed permanently. A new head commit changes the fingerprint, so
+        # re-reviewing new code re-justifies actions on purpose.
+        claimable = result.token_used
         engine = create_engine(settings.database_url)
         await create_schema(engine)
         async with session_scope(engine) as session:
             store = AuditStore(session)
-            already_planned = [
-                await store.has_fingerprint(action["fingerprint"])
-                for action in result.actions
-            ]
-            await store.record_run(event, run, result.actions)
-            eligible = [
-                action
-                for action, seen in zip(result.actions, already_planned)
-                if not seen
-            ]
+            record = await store.record_run(event, run, result.actions)
+            if claimable:
+                result.pending_actions = await store.claim_pending(
+                    result.actions, run_id=record.id
+                )
         await engine.dispose()
-        result.pending_actions = eligible
     finally:
         await provider.close()
 
-    if result.token_used and result.pending_actions:
+    if result.pending_actions:
         executor = action_executor or GitHubActionExecutor(token or "")
         try:
             for action in result.pending_actions:
@@ -166,5 +162,20 @@ async def run_review(
             final_close = getattr(executor, "close", None)
             if final_close is not None:
                 await final_close()
+
+        # Settle the claims with what actually happened. Until this runs, a
+        # claimed row reads as in-flight; after it, only failures stay
+        # claimable.
+        result_engine = create_engine(settings.database_url)
+        await create_schema(result_engine)
+        async with session_scope(result_engine) as session:
+            store = AuditStore(session)
+            for action, applied in zip(
+                result.pending_actions, result.action_results
+            ):
+                await store.mark_action(
+                    action["fingerprint"], applied.status, detail=applied.detail
+                )
+        await result_engine.dispose()
 
     return result

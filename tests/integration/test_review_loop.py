@@ -97,7 +97,8 @@ LOW_RISK_PAYLOAD = {
 class RecordingExecutor:
     """Stand-in for GitHubActionExecutor: records, never touches GitHub."""
 
-    def __init__(self) -> None:
+    def __init__(self, status: str = "performed") -> None:
+        self.status = status
         self.performed: list[tuple[str, int, str, str]] = []
         self.closed = False
 
@@ -106,7 +107,7 @@ class RecordingExecutor:
             (repository, number, action["action_type"], action["target"])
         )
         return ActionResult(
-            action["action_type"], "performed", str(action["target"])
+            action["action_type"], self.status, str(action["target"])
         )
 
     async def close(self) -> None:
@@ -223,10 +224,72 @@ async def test_no_execute_records_but_never_performs(real_jev_payload, tmp_path)
     assert (tmp_path / "audit.db").exists()
 
 
+async def test_planned_without_write_is_claimable_later(real_jev_payload, tmp_path):
+    """A --no-execute run must not suppress a later real execution.
+
+    The first run records the plan without claiming anything; the second run
+    claims the untouched rows and performs them.
+    """
+    settings = make_settings(tmp_path)
+    plan_only = await run_review(
+        "octo/repo",
+        9,
+        token="gh-token-not-real",
+        settings=settings,
+        github_client=make_github(),
+        decision_provider=make_provider(real_jev_payload),
+        execute_actions=False,
+    )
+    assert plan_only.pending_actions == []
+
+    executor = RecordingExecutor()
+    second = await run_review(
+        "octo/repo",
+        9,
+        token="gh-token-not-real",
+        settings=settings,
+        github_client=make_github(),
+        decision_provider=make_provider(real_jev_payload),
+        action_executor=executor,
+    )
+
+    assert second.run.succeeded
+    assert len(executor.performed) == 3, "recorded plans can still be executed"
+
+
+async def test_failed_write_is_retried_on_a_later_run(real_jev_payload, tmp_path):
+    """A rejected write stays eligible; a performed one does not."""
+    settings = make_settings(tmp_path)
+    rejected = RecordingExecutor(status="failed")
+    first = await run_review(
+        "octo/repo",
+        9,
+        token="gh-token-not-real",
+        settings=settings,
+        github_client=make_github(),
+        decision_provider=make_provider(real_jev_payload),
+        action_executor=rejected,
+    )
+    assert len(rejected.performed) == 3
+    assert first.action_results[0].status == "failed"
+
+    retried = RecordingExecutor()
+    await run_review(
+        "octo/repo",
+        9,
+        token="gh-token-not-real",
+        settings=settings,
+        github_client=make_github(),
+        decision_provider=make_provider(real_jev_payload),
+        action_executor=retried,
+    )
+    assert len(retried.performed) == 3, "a failed write is retried"
+
+
 async def test_repeated_review_never_reexecutes_recorded_actions(
     real_jev_payload, tmp_path
 ):
-    """Same content, same fingerprints: the second run must plan only."""
+    """Same head commit with performed actions: the second run must plan only."""
     settings = make_settings(tmp_path)
     first_executor = RecordingExecutor()
     await run_review(
@@ -238,7 +301,6 @@ async def test_repeated_review_never_reexecutes_recorded_actions(
         decision_provider=make_provider(real_jev_payload),
         action_executor=first_executor,
     )
-    assert len(first_executor.performed) == 3
 
     second_executor = RecordingExecutor()
     second = await run_review(
@@ -253,7 +315,7 @@ async def test_repeated_review_never_reexecutes_recorded_actions(
 
     assert second.run.succeeded
     assert second.actions, "the run still justifies the same actions"
-    assert second.pending_actions == [], "everything is already on record"
+    assert second.pending_actions == [], "performed claims are closed"
     assert second_executor.performed == []
 
 

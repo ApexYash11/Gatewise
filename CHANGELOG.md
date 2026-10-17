@@ -19,6 +19,12 @@ Gatewise is pre-1.0. `0.x` releases may change the decision schemas or the API.
   same content are never performed again. Stable exit codes for automation:
   0 reviewed, 2 usage, 3 model unavailable, 4 fetch failed, 5 not configured,
   6 an attempted action was rejected by GitHub.
+- **Action claims are now execution-state-aware.** Action identity includes the
+  target and the head commit (distinct labels never collide; a new head commit
+  re-justifies actions), and performing an action is decided by an atomic
+  claim in the audit store with per-row execution status: performed and skipped
+  actions never repeat, failed ones are retried on a later run, and concurrent
+  reviews cannot double-perform the same action.
 - **Linting in CI.** `ruff` and `mypy` over all packages, run as a new CI job.
 
 ## [0.1.0]

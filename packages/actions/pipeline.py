@@ -130,13 +130,19 @@ class DecisionPipeline:
             run.completed_at = datetime.now(UTC)
         return run
 
-    def plan_actions(self, run: EvaluationRun) -> list[dict[str, Any]]:
+    def plan_actions(
+        self, run: EvaluationRun, *, head_sha: str = ""
+    ) -> list[dict[str, Any]]:
         """Derive the actions a run justifies.
 
         Routing is deliberately coarse and expressed in terms of levels and
         probability bands, never exact floats: Jev is not deterministic, so a
         threshold such as ``score > 2.07`` would behave inconsistently between
         runs.
+
+        ``head_sha`` participates in the action identity, not in the decision
+        itself: a new head commit is new content, so re-reviewing it may
+        re-justify actions that a previous head already earned.
 
         Returns an empty list for a failed run. A missing decision authorizes
         nothing.
@@ -176,7 +182,9 @@ class DecisionPipeline:
                         repository=run.repository,
                         pull_request_number=run.pull_request_number,
                         action_type="add_label",
+                        target=label,
                         decision_run_id=run.state_hash,
+                        head_sha=head_sha,
                     ),
                 }
             )
@@ -190,7 +198,9 @@ class DecisionPipeline:
                         repository=run.repository,
                         pull_request_number=run.pull_request_number,
                         action_type=action_type,
+                        target=trigger,
                         decision_run_id=run.state_hash,
+                        head_sha=head_sha,
                     ),
                 }
             )

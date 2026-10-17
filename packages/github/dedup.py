@@ -11,8 +11,8 @@ Two independent layers guard against this:
 2. **Deterministic action identifiers** (:func:`action_fingerprint`) let the action
    layer recognize a repeat even if the delivery ID differs -- for example when a
    maintainer re-sends an event. The fingerprint is derived only from stable facts
-   (repository, pull request, action type, decision run), never from a timestamp,
-   so it is stable across processes and restarts.
+   (repository, pull request, action type, target, decision run, head commit),
+   never from a timestamp, so it is stable across processes and restarts.
 
 The second layer matters because layer 1 alone still leaves a window: a genuinely
 new delivery for an already-acted-upon decision run would otherwise duplicate work.
@@ -73,19 +73,26 @@ def action_fingerprint(
     repository: str,
     pull_request_number: int,
     action_type: str,
+    target: Any = "",
     decision_run_id: Any,
+    head_sha: str = "",
 ) -> str:
     """Build a stable identifier for an action about to be taken.
 
-    Deterministic by construction: the same decision run always yields the same
-    fingerprint, so a redelivery or a retried job can detect that the action was
-    already performed. Excludes any timestamp or random component, which would
-    make every attempt look new.
+    Deterministic by construction: the same decision run against the same head
+    commit always yields the same fingerprint, so a redelivery, a retried job,
+    or a concurrent review can detect that the action was already performed
+    (or already claimed). Two labels on the same run must never collide, so the
+    target is part of the identity, and a new head commit is new content, so
+    the head SHA is too. Excludes any timestamp or random component, which
+    would make every attempt look new.
     """
     parts = (
         str(repository),
         str(pull_request_number),
         str(action_type),
+        str(target),
         str(decision_run_id),
+        str(head_sha),
     )
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:32]

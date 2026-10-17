@@ -250,6 +250,62 @@ async def test_planned_actions_have_stable_fingerprints(real_jev_payload):
     ]
 
 
+async def test_planned_labels_have_distinct_fingerprints(real_jev_payload):
+    """Two justified labels never share an identity.
+
+    ``risk:high`` and ``security:review`` could both be justified by one run;
+    if their fingerprints collided, the second label would look like a
+    duplicate of the first and never be recorded or performed.
+    """
+    payload = full_payload(
+        4.0,
+        {"0": 0, "1": 0, "2": 0.05, "3": 0.05, "4": 0.9},
+        pr_security_review=0.92,
+        pr_additional_testing=0.1,
+        pr_maintainer_review=0.1,
+    )
+    pipeline, _ = make_pipeline(payload)
+    event = make_event()
+
+    run = await pipeline.evaluate(event, make_context(event))
+    actions = pipeline.plan_actions(run)
+
+    fingerprint_groups = {}
+    for action in actions:
+        by_type = fingerprint_groups.setdefault(action["action_type"], [])
+        by_type.append(action["fingerprint"])
+    for fingerprints in fingerprint_groups.values():
+        assert len(fingerprints) == len(set(fingerprints)), (
+            "distinct targets must have distinct identities"
+        )
+
+
+async def test_plan_identity_moves_with_the_head_commit(real_jev_payload):
+    """A new head is new content: identical context, different identity.
+
+    The state hash (what the model saw) stays stable; only the action
+    fingerprint carries the commit, so re-reviewing new code can re-justify
+    actions without rewriting what was decided.
+    """
+    pipeline, _ = make_pipeline(real_jev_payload)
+    event = make_event()
+
+    run = await pipeline.evaluate(event, make_context(event))
+    as_first_commit = pipeline.plan_actions(run, head_sha="sha-1")
+    as_new_commit = pipeline.plan_actions(run, head_sha="sha-2")
+
+    same_commit_again = pipeline.plan_actions(run, head_sha="sha-1")
+    assert [a["fingerprint"] for a in as_first_commit] == [
+        a["fingerprint"] for a in same_commit_again
+    ]
+    assert {a["fingerprint"] for a in as_first_commit}.isdisjoint(
+        {a["fingerprint"] for a in as_new_commit}
+    )
+    # The decision context hash itself is untouched: it describes what the
+    # model saw, not which commit produced it.
+    assert run.state_hash == hash_state(make_context(event).state)
+
+
 async def test_policy_routes_on_levels_not_exact_floats():
     """Jev is non-deterministic, so policy must not depend on precise scores.
 

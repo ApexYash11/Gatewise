@@ -138,6 +138,103 @@ async def test_failed_run_is_recorded_with_its_error(store):
     assert "boom" in record.error
 
 
+def make_run_and_actions():
+    """Two distinct planned actions for the claim tests; no model call needed."""
+    from actions.pipeline import EvaluationRun
+    from github.dedup import action_fingerprint
+
+    run = EvaluationRun(
+        repository="octo/repo",
+        pull_request_number=5215,
+        provider="jev",
+        model="jev-latest",
+        is_official_jev=True,
+        question_versions=[],
+    )
+
+    return run, [
+        {
+            "action_type": "add_label",
+            "target": "risk:high",
+            "fingerprint": action_fingerprint(
+                repository="octo/repo",
+                pull_request_number=5215,
+                action_type="add_label",
+                target="risk:high",
+                decision_run_id=run.state_hash,
+                head_sha="sha-1",
+            ),
+        },
+        {
+            "action_type": "trigger_workflow",
+            "target": "extended-ci",
+            "fingerprint": action_fingerprint(
+                repository="octo/repo",
+                pull_request_number=5215,
+                action_type="trigger_workflow",
+                target="extended-ci",
+                decision_run_id=run.state_hash,
+                head_sha="sha-1",
+            ),
+        },
+    ]
+
+
+async def test_claim_is_single_owner(store):
+    """The first claim wins the row; the second finds nothing to claim."""
+    audit, _ = store
+    run, actions = make_run_and_actions()
+    event = make_event()
+    record = await audit.record_run(event, run)
+
+    first = await audit.claim_pending(actions, run_id=record.id)
+    assert [a["fingerprint"] for a in first] == [a["fingerprint"] for a in actions]
+
+    second = await audit.claim_pending(actions, run_id=record.id)
+    assert second == [], "an executing claim is not claimable again"
+
+
+async def test_marked_performed_closes_the_identity(store):
+    audit, _ = store
+    run, actions = make_run_and_actions()
+    event = make_event()
+    record = await audit.record_run(event, run)
+    claimed = await audit.claim_pending(actions, run_id=record.id)
+    for action in claimed:
+        await audit.mark_action(action["fingerprint"], "performed")
+
+    again = await audit.claim_pending(actions, run_id=record.id)
+    assert again == [], "performed actions never re-execute"
+
+
+async def test_marked_failed_stays_eligible(store):
+    """A rejected write is a retry question, not a settled fact."""
+    audit, _ = store
+    run, actions = make_run_and_actions()
+    event = make_event()
+    record = await audit.record_run(event, run)
+    claimed = await audit.claim_pending(actions, run_id=record.id)
+    for action in claimed:
+        await audit.mark_action(action["fingerprint"], "failed")
+
+    retry = await audit.claim_pending(actions, run_id=record.id)
+    assert [a["fingerprint"] for a in retry] == [a["fingerprint"] for a in actions]
+
+
+async def test_claim_creates_rows_with_the_run_id(store):
+    """Actions are always attached to the run that asked for them."""
+    audit, _ = store
+    run, actions = make_run_and_actions()
+    event = make_event()
+    record = await audit.record_run(event, run)
+    claimed = await audit.claim_pending(actions, run_id=record.id)
+
+    rows = await audit.get_actions(record.id)
+    assert len(rows) == len(claimed)
+    assert all(row.decision_run_id == record.id for row in rows)
+    assert all(row.status == "executing" for row in rows)
+
+
 async def test_actions_are_persisted_with_fingerprints(store):
     audit, _ = store
     pipeline, _ = make_pipeline(REAL_PAYLOAD)

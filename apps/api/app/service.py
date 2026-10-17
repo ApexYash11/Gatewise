@@ -108,7 +108,7 @@ class GatewiseService:
         )
 
         run = await self._pipeline.evaluate(event, context)
-        actions = self._pipeline.plan_actions(run)
+        actions = self._pipeline.plan_actions(run, head_sha=event.head_sha)
         record = await self._store.record_run(event, run, actions)
 
         if not run.succeeded:
@@ -175,7 +175,7 @@ class GatewiseService:
         )
 
         run = await self._pipeline.evaluate(parsed, context)
-        actions = self._pipeline.plan_actions(run)
+        actions = self._pipeline.plan_actions(run, head_sha=parsed.head_sha)
         await self._store.record_run(parsed, run, actions)
 
         if not run.succeeded:

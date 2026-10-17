@@ -92,3 +92,31 @@ def test_action_fingerprint_differs_by_decision_run():
     assert action_fingerprint(**base, decision_run_id="run-1") != action_fingerprint(
         **base, decision_run_id="run-2"
     )
+
+
+def test_action_fingerprint_differs_by_target():
+    """Two labels on the same run are two actions, never one."""
+    base = dict(
+        repository="octo/repo", pull_request_number=42, decision_run_id="run-abc"
+    )
+    assert action_fingerprint(**base, action_type="add_label", target="risk:high") != (
+        action_fingerprint(**base, action_type="add_label", target="security:review")
+    )
+
+
+
+def test_action_fingerprint_differs_by_head_commit():
+    """New code is new content: identity must move with the head SHA."""
+    base = dict(
+        repository="octo/repo",
+        pull_request_number=42,
+        action_type="trigger_workflow",
+        target="extended-ci",
+        decision_run_id="run-abc",
+    )
+    assert action_fingerprint(**base, head_sha="sha-1") != action_fingerprint(
+        **base, head_sha="sha-2"
+    )
+    assert action_fingerprint(**base, head_sha="sha-1") == action_fingerprint(
+        **base, head_sha="sha-1"
+    )
