@@ -8,9 +8,10 @@ changing ``DATABASE_URL`` and nothing else.
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import AsyncIterator
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
@@ -68,16 +69,25 @@ async def create_schema(engine: AsyncEngine) -> None:
                 # error. That outcome *is* the successful migration, so it is
                 # tolerated; anything else propagates and aborts startup
                 # visibly.
-                text = str(exc).lower()
-                if "duplicate column" not in text and "already exists" not in text:
+                message = str(exc).lower()
+                if (
+                    "duplicate column" not in message
+                    and "already exists" not in message
+                ):
                     raise
         # Legacy rows already mid-execution at upgrade time have a NULL claim
         # time, so the stale-reclaim predicate would never match and they
         # could never be retried. Stamp them now: they become reclaimable
-        # after the staleness window instead of being trapped forever.
-        await connection.exec_driver_sql(
-            "UPDATE actions SET claimed_at = CURRENT_TIMESTAMP "
-            "WHERE status = 'executing' AND claimed_at IS NULL"
+        # after the staleness window instead of being trapped forever. The
+        # timestamp is a bound, UTC-naive value, because `CURRENT_TIMESTAMP`
+        # is the session's wall time on PostgreSQL and would shift the
+        # reclaim window by the database's timezone offset.
+        await connection.execute(
+            text(
+                "UPDATE actions SET claimed_at = :now "
+                "WHERE status = 'executing' AND claimed_at IS NULL"
+            ),
+            {"now": datetime.now(UTC).replace(tzinfo=None)},
         )
 
 

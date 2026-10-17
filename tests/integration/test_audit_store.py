@@ -239,10 +239,12 @@ async def test_marked_failed_stays_eligible(store):
 async def test_stale_worker_cannot_settle_onto_a_newer_claim(store):
     """A reclaimed row ignores results from the dead worker's old token.
 
-    Full sequence: claim (token A) -> the row is reclaimed by another worker
-    (token B, as happens after A's claim goes stale) -> the late result from
-    A must leave the row executing; only B settles it.
+    Full sequence: claim (token A) -> A's claim goes stale and another worker
+    reclaims the row through the real reclaim path (token B) -> A's late
+    result must leave the row executing; only B settles it.
     """
+    from datetime import UTC, datetime, timedelta
+
     from sqlalchemy import text
 
     audit, session = store
@@ -252,28 +254,31 @@ async def test_stale_worker_cannot_settle_onto_a_newer_claim(store):
     claimed = await audit.claim_pending(actions, run_id=record.id)
     assert len(claimed) == 2
     worker_a_token = claimed[0]["claim_token"]
-
-    # Simulate the reclaim another worker won after A's claim went stale:
-    # same row, new owner token.
     fingerprint = claimed[0]["fingerprint"]
+
+    # Age both rows past the staleness window so a second claim can win.
+    stale = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=25)
     await session.execute(
-        text(
-            "UPDATE actions SET claim_token = 'worker-b-token' "
-            "WHERE fingerprint = :fp"
-        ),
-        {"fp": fingerprint},
+        text("UPDATE actions SET claimed_at = :old"),
+        {"old": stale},
     )
     await session.commit()
 
+    # Worker B reclaims through the genuine reclaim path (claim_pending).
+    reclaim = await audit.claim_pending(actions, run_id=record.id)
+    reclaimed = {a["fingerprint"]: a["claim_token"] for a in reclaim}
+    assert fingerprint in reclaimed, "the stale row is reclaimable"
+    assert reclaimed[fingerprint] != worker_a_token
+
     # The dead worker reports back late with token A.
-    await audit.mark_action(
-        fingerprint, "performed", claim_token=worker_a_token
-    )
+    await audit.mark_action(fingerprint, "performed", claim_token=worker_a_token)
     rows = {row.fingerprint: row for row in await audit.get_actions(record.id)}
     assert rows[fingerprint].status == "executing", "a stale token cannot settle"
 
     # The current owner settles normally.
-    await audit.mark_action(fingerprint, "performed", claim_token="worker-b-token")
+    await audit.mark_action(
+        fingerprint, "performed", claim_token=reclaimed[fingerprint]
+    )
     rows = {row.fingerprint: row for row in await audit.get_actions(record.id)}
     assert rows[fingerprint].status == "performed"
 
