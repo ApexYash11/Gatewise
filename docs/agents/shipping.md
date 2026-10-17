@@ -14,7 +14,8 @@ The standing workflow every task follows. The `/ship-work` skill points here.
    boundaries in `AGENTS.md`; a boundary you cannot respect is a breaking point
    (see below), not a quick refactor.
 4. **Verify (never skip):**
-   - `.venv\Scripts\python -m pytest -q` — all green, no network used
+   - `python -m pytest -q` (`.venv\Scripts\python` on Windows,
+  `.venv/bin/python` elsewhere) — all green, no network used
    - `ruff check .` — clean
    - `mypy` — clean
    - For skill/docs work: `cmd skills list` shows the skills, no load failures
@@ -41,8 +42,8 @@ Work continues only after the decision is recorded on that issue.
 
 | Issue | Phase | Status |
 |---|---|---|
-| #2 | CLI + lint CI (phase 0) | PR #3 open for review |
-| #4 | PyPI packaging (phase 1) | pending |
+| #2 | CLI + lint CI (phase 0) | merged (PR #3) |
+| #4 | PyPI packaging (phase 1) | merged (PR #12) |
 | #6 | GitHub Action (phase 2) | pending |
 | #5 | npm skill package (phase 3) | pending |
 | #7 | Human-labelled dataset (phase 4) | parallel, small set |

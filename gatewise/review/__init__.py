@@ -6,13 +6,15 @@ a GitHub Action, a coding agent — should be able to ask one function for the s
 result the webhook path produces.
 
 ``run_review`` is that entry point. It fetches the real pull request over the
-GitHub API, builds the isolated context, asks the real decision model, always
-records the run in the audit store, and only then performs the actions the run
-justifies, behind an explicit token and the executor's allowlist.
+GitHub API, builds the isolated context, asks the real decision model, records
+every decision evaluation in the audit store once the pull request has been
+fetched and the provider is configured, and only then performs the actions the
+run justifies, behind an explicit token and the executor's allowlist.
 
-Exit-code meaning is owned by :mod:`review.cli`; the loop itself always returns
-a result, because a failed run recorded honestly is a result, not an error to
-hide.
+Exit-code meaning is owned by :mod:`gatewise.review.cli`. The loop returns a
+result for every evaluation outcome — a failed run recorded honestly is a
+result, not an error to hide; fetch and configuration failures raise instead,
+because there is no run to show for them.
 """
 
 from .cli import main

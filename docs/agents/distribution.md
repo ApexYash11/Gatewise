@@ -7,22 +7,23 @@ How Gatewise reaches users: four installable surfaces, one decision layer. The
 
 | Surface | Install | Status | Issue |
 |---|---|---|---|
-| PyPI CLI `gatewise` | `gatewise review owner/name 123` | shipped (in-repo, unpublishable yet) | #2 (merged) |
-| PyPI package `pip install gatewise` | needed for the CLI to be a real download | planned | #4 |
+| PyPI CLI `gatewise` | `gatewise review owner/name 123` | merged (PR #3) | #2 |
+| PyPI package `pip install gatewise` | wheel + release workflow ready (PR #12); publish needs the pypi.org pending publisher | merged | #4 |
 | GitHub Action | one workflow YAML + secret per repo | planned | #6 |
 | npm skill/plugin for coding agents | `cmd skills add ApexYash11/Gatewise` style | planned | #5 |
 | Human-labelled evaluation dataset | evidence, not an install | parallel | #7 |
 
-## Blocking constraint for publishing
+## Publish prerequisites (resolved / one owner step left)
 
-`packages/*` install as top-level import names (`github`, `actions`, `config`).
-`github` already exists on PyPI — **the namespace rename to `gatewise.*`
-(phase 1, issue #4) is the gate for every publish step**. Do not publish
-anything to a public registry before it lands.
+The packages **used to** install as top-level import names (`github`,
+`actions`, `config`), colliding with existing PyPI packages. The
+`gatewise.*` namespace rename removed that gate (phase 1, issue #4, merged
+via PR #12). The remaining prerequisite is owner-side: configure the
+pending publisher on pypi.org for project `gatewise` before any `v*` tag.
 
 ## Invariants for every surface
 
-- Same loop as the webhook path — `packages/review/run_review` is the single
+- Same loop as the webhook path — `gatewise.review.run_review` is the single
   serverless entry; a new surface wraps it, never reimplements it.
 - Fail loud: model unavailability surfaces as a failed run (CLI exit 3 /
   commented failure), never a default verdict.
@@ -34,10 +35,12 @@ anything to a public registry before it lands.
 
 ## GitHub Action shape (phase 2)
 
-`action.yml` at the repo root calling `gatewise review $GITHUB_REPOSITORY $PR`;
-posts/updates one triage comment (renderer in `packages/review/render.py` is
-the shared report so it is not a separate codebase); applies the planned
-actions only. Composite or docker run wrapping the Phase-1 wheel.
+`action.yml` at the repo root invoking `gatewise review` with the repository
+and pull-request number taken from the pull-request event (never an
+undefined shell variable); posts/updates one triage comment (renderer in
+`gatewise.review.render` is the shared report so it is not a separate
+codebase); applies the planned actions only. Composite or docker run
+wrapping the Phase-1 wheel.
 
 ## npm skill shape (phase 3)
 

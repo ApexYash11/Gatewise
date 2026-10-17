@@ -10,14 +10,14 @@ compact context from a pull request, asks a typed decision model (Jev) six
 versioned questions, and turns typed answers into actions. It is **not** a code
 reviewer and **not** a chatbot. Package map:
 
-- `packages/decisions/` — typed schemas, provider abstraction, Jev provider, versioned question registry
-- `packages/context/` — context builder; untrusted PR text is isolated here
-- `packages/github/` — webhook signature verification, dedup, event parsing, fetching
-- `packages/actions/` — decision pipeline, action planner, GitHub executor
-- `packages/audit/` — SQLAlchemy audit store
-- `packages/review/` — serverless review loop and the `gatewise` CLI
-- `packages/evaluation/` — dataset loading with provenance, metrics, benchmark runner
-- `packages/config/` — environment settings; secrets never leave here
+- `gatewise/decisions/` — typed schemas, provider abstraction, Jev provider, versioned question registry
+- `gatewise/context/` — context builder; untrusted PR text is isolated here
+- `gatewise/github/` — webhook signature verification, dedup, event parsing, fetching
+- `gatewise/actions/` — decision pipeline, action planner, GitHub executor
+- `gatewise/audit/` — SQLAlchemy audit store
+- `gatewise/review/` — serverless review loop and the `gatewise` CLI
+- `gatewise/evaluation/` — dataset loading with provenance, metrics, benchmark runner
+- `gatewise/config/` — environment settings; secrets never leave here
 - `apps/api/` — FastAPI: webhook receiver, read endpoints, dashboard
 
 ## Commands
@@ -25,7 +25,8 @@ reviewer and **not** a chatbot. Package map:
 Run these **before** claiming any change is green (test first, report after):
 
 - Install: `python -m venv .venv` + `pip install -e ".[dev]"`
-- Tests: `.venv\Scripts\python -m pytest -q` — 264 tests, no network, no API key
+- Tests: `python -m pytest -q` against a `.[dev]` install — full suite, no
+  network, no API key; `python -m ruff check .` and `python -m mypy` beside it
 - Lint: `ruff check .` · Types: `mypy`
 - Server + dashboard: `python scripts/serve.py`
 
@@ -35,7 +36,7 @@ Run these **before** claiming any change is green (test first, report after):
    failure is recorded as a failure; a missing decision authorizes nothing and is
    never turned into `risk = 0` or `safe = true`.
 2. **Untrusted input is untrusted.** Attacker-controlled PR text lives in
-   `untrusted_content`, separate from trusted metadata (`packages/context`).
+   `untrusted_content`, separate from trusted metadata (`gatewise.context`).
 3. **Webhook order is a security property:** verify signature → deduplicate →
    parse. Never reorder.
 4. **Actions are planned on every path; executed only deliberately.** Execution
@@ -51,7 +52,7 @@ Run these **before** claiming any change is green (test first, report after):
 
 - Python 3.12+, complete annotations, no bare `except`.
 - Comment only to record a constraint, invariant, or tradeoff a reader could not
-  infer — never narrate code. Model docstrings on `packages/review/loop.py`.
+  infer — never narrate code. Model docstrings on `gatewise/review/loop.py`.
 - Line length 100 (`ruff` enforces). Imports ordered (ruff `I` rules).
 - Keep diffs minimal: fix the problem asked for, don't reformat around it.
 

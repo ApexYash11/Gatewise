@@ -8,9 +8,11 @@ argument-hint: "[phase-or-task]"
 
 ## Steps
 
-1. Read `@docs/agents/shipping.md` — the full loop. Map the task to its issue
-   (or raise one: `gh issue create --label enhancement`).
-2. Branch: `git checkout -b feat/<short-name>`; implement minimal diffs.
+1. Read `@docs/agents/shipping.md` — the full loop. Map the task to its
+   issue (or raise one: `gh issue create`, labelled by work type —
+   `enhancement` / `bug` / `documentation`).
+2. Branch from `main` (`git checkout main && git pull` first):
+   `git checkout -b feat/<short-name>`; implement minimal diffs.
 3. Run the `/verify` skill last: pytest, ruff, mypy (and `cmd skills list` for
    skill work).
 4. Commit with a one-liner, constraint note, `Closes #<issue>`;

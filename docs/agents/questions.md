@@ -1,7 +1,7 @@
 # Adding or changing a decision question
 
 The `/add-question` skill points here. The registry is
-`packages/decisions/questions/pull_request.yaml`; every record is `name@version`.
+`gatewise/decisions/questions/pull_request.yaml`; every record is `name@version`.
 
 ## Question types
 
@@ -33,9 +33,9 @@ incomparable — that is the one failure mode versioning exists to prevent.
 2. Write instructions as a single explicit ask; put the decision rule the model
    should apply into `criteria`.
 3. Add the question to the YAML **and** the six-question batching expectation in
-   `packages/decisions/jev.py` stays generic — provider code must not name
+   `gatewise/decisions/jev.py` stays generic — provider code must not name
    specific questions (provider-independently above the provider).
-4. If the planner (`packages/actions/pipeline.py`) should route on it, add a
+4. If the planner (`gatewise/actions/pipeline.py`) should route on it, add a
    *banded* rule; otherwise routing stays policy-free.
 5. Tests: registry validation (`test_registry.py`),
    provider-compatible request shape (`test_jev_provider.py`), planner band

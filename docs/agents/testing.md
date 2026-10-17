@@ -35,9 +35,9 @@ Existing boundary patterns to reuse:
   test against unpatched code once if you are unsure.
 - **No hardcoded verdicts from prose**: context-builder heuristics (file
   categories) may be asserted as *descriptive labels*, never as risk levels.
-- **Security properties get unit tests**, not just integration ones: signature
-  tampering, replay/dedup, payload size — `tests/unit/test_webhook_security.py`
-  is the model.
+- **Security properties get unit tests**, not just integration ones: signature tampering (`tests/unit/test_webhook_security.py`), delivery
+  replay (`tests/unit/test_dedup.py`), and payload/shape guards
+  (`tests/unit/test_webhook_events.py`).
 
 ## Adversarial coverage
 

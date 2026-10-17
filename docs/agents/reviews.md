@@ -13,18 +13,18 @@ by tests alone:
    decision: keyword counting, default `risk`, `safe = true` on error, `except`
    that swallows `DecisionUnavailable`. A provider failure must remain a
    recorded failure (`RunStatus.FAILED`, error kept on the run).
-2. **Executor allowlist untouched.** `packages/actions/executor.py`'s
+2. **Executor allowlist untouched.** `gatewise/actions/executor.py`'s
    `ALLOWED_ACTIONS`/`FORBIDDEN_ACTIONS` must not have changed shape. Anything
    that teaches the executor to merge, delete, force-push, release, or deploy is
    an automatic reject.
 3. **Webhook order intact.** Signature verification happens before
    deduplication, deduplication before parsing, parsing before context. Reorder
-   in `apps/api/app/main.py` or `packages/actions/pipeline.py` is an automatic
+   in `apps/api/app/service.py` or `gatewise/actions/pipeline.py` is an automatic
    reject — the order is a security property, not a style choice.
 4. **Untrusted-input surface.** If the diff makes new text reach the model
    (builder fields, fetch data, comment rendering), there must be adversarial
    coverage under `tests/adversarial/` for it in the same PR.
-5. **Question versions.** If `packages/decisions/questions/pull_request.yaml`
+5. **Question versions.** If `gatewise/decisions/questions/pull_request.yaml`
    changed without a version bump, reject. See `questions.md`.
 6. **Nothing leaked.** New env var decoding? Tokens printed? A URL built with
    unvalidated repository input (must pass `validate_repository`)? Check the
@@ -50,7 +50,7 @@ by tests alone:
    ask the author to split it.
 4. **Docstrings.** New modules should record constraints a reader could not
    infer (the `#/` attribute comments and module headers are the house style,
-   modeled on `packages/review/loop.py`); narration-style comments are noise.
+   modeled on `gatewise/review/loop.py`); narration-style comments are noise.
 
 ## Evidence format for the review comment
 
