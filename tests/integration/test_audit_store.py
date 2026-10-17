@@ -10,7 +10,12 @@ from conftest import RecordingTransport
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gatewise.actions import DecisionPipeline
-from gatewise.audit import AuditStore, create_engine, create_schema
+from gatewise.audit import (
+    AuditStore,
+    create_engine,
+    create_schema,
+    session_scope,
+)
 from gatewise.context import build_context
 from gatewise.decisions.jev import JevDecisionProvider
 from gatewise.decisions.registry import load_registry
@@ -273,6 +278,47 @@ async def test_claim_creates_rows_with_the_run_id(store):
     assert len(rows) == len(claimed)
     assert all(row.decision_run_id == record.id for row in rows)
     assert all(row.status == "executing" for row in rows)
+
+
+async def test_create_schema_upgrades_existing_audit_databases(tmp_path):
+    """A database predating the claim columns upgrades without losing rows.
+
+    The real-world path: a local gatewise.db written by an earlier version at
+    first use of the claim machinery. ``create_all`` cannot add columns to an
+    existing table; the upgrade path must.
+    """
+    from sqlalchemy import text
+
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'legacy.db'}")
+
+    # A legacy actions table without claimed_at/claim_token, holding one row.
+    async with engine.begin() as connection:
+        await connection.exec_driver_sql(
+            "CREATE TABLE actions ("
+            "id INTEGER PRIMARY KEY, decision_run_id INTEGER, "
+            "fingerprint VARCHAR(64) UNIQUE, action_type VARCHAR(32), "
+            "target VARCHAR(128), status VARCHAR(32), result TEXT, "
+            "created_at TIMESTAMP, completed_at TIMESTAMP)"
+        )
+        await connection.exec_driver_sql(
+            "INSERT INTO actions (fingerprint, action_type, status) "
+            "VALUES ('legacy-fingerprint', 'add_label', 'planned')"
+        )
+
+    await create_schema(engine)
+    # Idempotent: a second pass must not raise or duplicate anything.
+    await create_schema(engine)
+
+    async with session_scope(engine) as session:
+        rows = (
+            await session.execute(
+                text("SELECT fingerprint, claimed_at, claim_token FROM actions")
+            )
+        ).all()
+    await engine.dispose()
+    assert len(rows) == 1, "existing audit data survives the upgrade"
+    assert rows[0][0] == "legacy-fingerprint"
+    assert rows[0][1] is None and rows[0][2] is None
 
 
 async def test_actions_are_persisted_with_fingerprints(store):

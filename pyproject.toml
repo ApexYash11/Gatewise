@@ -4,7 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gatewise"
-version = "0.2.0"
+# One version source: gatewise.__version__; `dynamic` keeps pyproject aligned
+# with what `importlib` reports and what the API version string shows.
+dynamic = ["version"]
 description = "Decision infrastructure for autonomous software engineering, powered by typed System-1 decision models."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -35,6 +37,15 @@ gatewise = "gatewise.review.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["gatewise*"]
+
+# The registry YAMLs must ship: load_registry() reads questions from the
+# installed package, and a wheel without them is broken at review time —
+# the exact kind of packaging failure a tag cannot undo.
+[tool.setuptools.package-data]
+"gatewise.decisions" = ["questions/*.yaml"]
+
+[tool.setuptools.dynamic]
+version = { attr = "gatewise.__version__" }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

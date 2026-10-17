@@ -87,5 +87,5 @@ def render_review(result: ReviewResult, *, execution_note: str | None = None) ->
             lines.append(f"  ({execution_note})")
 
     lines.append("")
-    lines.append(f"recorded in  : {result.database_url}")
+    lines.append(f"recorded in  : {_redact_database_url(result.database_url)}")
     return "\n".join(lines)

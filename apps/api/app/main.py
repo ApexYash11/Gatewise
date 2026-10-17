@@ -29,6 +29,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from gatewise import __version__ as package_version
 from gatewise.actions.pipeline import DecisionPipeline
 from gatewise.audit import AuditStore, create_engine, create_schema, session_scope
 from gatewise.config import Settings
@@ -126,7 +127,10 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Gatewise",
-        version="0.1.0",
+        # One version source: gatewise.__version__, the value the wheel and
+        # the pyproject build derive — the API must not drift from the
+        # package it ships with.
+        version=package_version,
         summary="Typed decision infrastructure for software engineering.",
         lifespan=lifespan,
     )

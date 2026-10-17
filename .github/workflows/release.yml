@@ -25,6 +25,19 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      # A tag whose version disagrees with the package would publish a
+      # release nothing in the repository agrees with. Fail before building.
+      - name: Tag version matches pyproject.toml
+        run: |
+          python - <<'EOF'
+          import re, sys, tomllib, pathlib
+          tag = "${GITHUB_REF_NAME}".lstrip("v")
+          declared = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+          if tag != declared:
+              sys.exit(f"tag v{tag} does not match pyproject.toml version {declared}")
+          print(f"release {declared} confirmed")
+          EOF
+
       - name: Install tooling and the package
         run: |
           python -m pip install --upgrade pip
@@ -41,13 +54,16 @@ jobs:
       - name: Metadata check
         run: twine check dist/*
 
-      # Publishing a wheel that does not import, or a console script that
-      # does not exist, is the one release failure a tag cannot undo.
+      # Publishing a wheel that does not import, a console script that does
+      # not exist, or a registry without its question definitions is the one
+      # release failure a tag cannot undo; the last check catches package
+      # data that setuptools would otherwise silently drop.
       - name: Install the wheel into a clean environment
         run: |
           python -m venv /tmp/release-check
           /tmp/release-check/bin/pip install dist/*.whl
           /tmp/release-check/bin/python -c "import gatewise.actions.pipeline; import gatewise.review; print('imports ok')"
+          /tmp/release-check/bin/python -c "from gatewise.decisions.registry import load_registry; registry = load_registry(); print(f'{len(registry.identifiers())} questions loaded')"
           /tmp/release-check/bin/gatewise --help > /dev/null && echo "CLI ok"
 
       - uses: actions/upload-artifact@v4

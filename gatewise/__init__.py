@@ -8,3 +8,5 @@ the rename is the gate for publishing (issue #4). The house rules live in
 :mod:`gatewise.decisions.provider` depends only on the abstract provider,
 never on Jev.
 """
+
+__version__ = "0.2.0"
