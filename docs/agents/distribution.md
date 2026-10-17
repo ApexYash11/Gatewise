@@ -9,7 +9,7 @@ How Gatewise reaches users: four installable surfaces, one decision layer. The
 |---|---|---|---|
 | PyPI CLI `gatewise` | `gatewise review owner/name 123` | merged (PR #3) | #2 |
 | PyPI package `pip install gatewise` | wheel + release workflow ready (PR #12); publish needs the pypi.org pending publisher | merged | #4 |
-| GitHub Action | one workflow YAML + secret per repo | PR open for review | #6 |
+| GitHub Action | one workflow YAML + secret per repo | in review (PR #14) | #6 |
 | npm skill/plugin for coding agents | `cmd skills add ApexYash11/Gatewise` style | planned | #5 |
 | Human-labelled evaluation dataset | evidence, not an install | parallel | #7 |
 

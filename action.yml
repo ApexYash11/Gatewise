@@ -7,8 +7,17 @@ author: ApexYash11
 
 # Consumer contract: the calling workflow grants least privilege
 # (pull-requests: write, issues: write, contents: read) and passes secrets
-# only as action inputs:
+# only as action inputs. Composite steps only ever read inputs through the
+# step environment — never interpolated into the script text — so a crafted
+# caller value cannot break out of a quoted variable.
 #
+# For forked pull requests, `pull_request` gives the automatic token read-only
+# access and withholds caller secrets; use `pull_request_target` instead, with
+# a token that may write, and never check out or execute the fork's code:
+#
+#   on:
+#     pull_request_target:
+#       types: [opened, synchronize, reopened]
 #   permissions:
 #     pull-requests: write
 #     issues: write
@@ -65,29 +74,38 @@ runs:
   steps:
     - name: Validate inputs
       shell: bash
+      env:
+        TYPESAFE_API_KEY_INPUT: ${{ inputs.typesafe-api-key }}
+        JEV_API_KEY_INPUT: ${{ inputs.jev-api-key }}
+        OPENROUTER_API_KEY_INPUT: ${{ inputs.openrouter-api-key }}
+        EVENT_NUMBER: ${{ github.event.number }}
       run: |
-        if [ -z "${{ inputs.typesafe-api-key }}${{ inputs.jev-api-key }}${{ inputs.openrouter-api-key }}" ]; then
+        if [ -z "$TYPESAFE_API_KEY_INPUT$JEV_API_KEY_INPUT$OPENROUTER_API_KEY_INPUT" ]; then
           echo "::error::Set typesafe-api-key (or its jev-api-key alias) or openrouter-api-key. Gatewise fails loudly without a decision-model key; there is no default verdict."
           exit 1
         fi
-        if [ -z "${{ github.event.number }}" ]; then
+        if [ -z "$EVENT_NUMBER" ]; then
           echo "::error::gatewise-action only runs on pull_request events: the PR number must come from the pull-request event payload."
           exit 1
         fi
 
     - name: Set up Python
-      uses: actions/setup-python@v5.1.1
+      # Pinned to the reviewed release commit, not the moving major tag: a tag
+      # can be repointed at code the token never approved.
+      uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
       with:
         python-version: ${{ inputs.python-version }}
 
     - name: Install Gatewise
       shell: bash
+      env:
+        PACKAGE_INPUT: ${{ inputs.package }}
       run: |
         python -m pip install --upgrade pip
-        if [ "${{ inputs.package }}" = "pypi" ]; then
+        if [ "$PACKAGE_INPUT" = "pypi" ]; then
           pip install gatewise
         else
-          pip install "${{ inputs.package }}"
+          pip install "$PACKAGE_INPUT"
         fi
 
     - name: Review the pull request
@@ -95,21 +113,36 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
-        TYPESAFE_API_KEY: ${{ inputs.typesafe-api-key }}${{ inputs.jev-api-key }}
+        # Canonical key first: when both are set, typesafe-api-key wins and the
+        # alias is only a fallback. Never concatenated — that would forge one
+        # invalid credential out of two valid ones.
+        TYPESAFE_API_KEY: ${{ inputs.typesafe-api-key || inputs.jev-api-key }}
         OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
+        REPOSITORY: ${{ github.repository }}
+        EVENT_NUMBER: ${{ github.event.number }}
       # The review step must never abort the composite before the triage
       # comment is posted: its exit code is captured and re-raised later, so a
       # failed run (exit 3/4/5/6) still lands on the PR as a comment first.
       run: |
         set +e
-        gatewise review \
-          "${{ github.repository }}" "${{ github.event.number }}" \
-          > "$RUNNER_TEMP/gatewise-review.txt"
+        gatewise review "$REPOSITORY" "$EVENT_NUMBER" \
+          > "$RUNNER_TEMP/gatewise-review.txt" 2>&1
         echo "exit-code=$?" >> "$GITHUB_OUTPUT"
+        # stdout alone can be empty when the CLI reports through stderr; the
+        # comment step must never replace the triage report with a bare marker.
+        if [ ! -s "$RUNNER_TEMP/gatewise-review.txt" ]; then
+          echo "Gatewise review produced no report output." \
+            > "$RUNNER_TEMP/gatewise-review.txt"
+        fi
 
     - name: Post the triage comment
-      if: always()
-      uses: actions/github-script@v7.1.0
+      # Once the review step has run, always — even on its failure, so the
+      # failure lands as a comment rather than silence. Skipped when the
+      # review never ran (validation/install failure), where there is no
+      # report file to post and the earlier error is the useful diagnostic.
+      if: always() && steps.review.outcome != 'skipped'
+      # Pinned to the reviewed release commit, not the moving major tag.
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
       with:
         github-token: ${{ inputs.github-token }}
         script: |
@@ -123,11 +156,15 @@ runs:
           const owner = context.repo.owner;
           const repo = context.repo.repo;
           const issue_number = context.payload.pull_request.number;
+          const me = await github.rest.users.getAuthenticated();
           const existing = await github.paginate(
             github.rest.issues.listComments, { owner, repo, issue_number });
+          // Match the token's own account, whatever its type: a caller-supplied
+          // user token posts User comments that a Bot-only check would miss,
+          // and another bot's marked comment must never be claimed.
           const owned = existing.find((comment) =>
             comment.body && comment.body.includes(marker) &&
-            comment.user.type === "Bot");
+            comment.user.login === me.data.login);
           if (owned) {
             await github.rest.issues.updateComment({
               owner, repo, comment_id: owned.id, body,
