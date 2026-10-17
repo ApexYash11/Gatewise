@@ -9,12 +9,18 @@ description: Pre-merge verification gate for Gatewise — run the real test/lint
 
 1. After your **last** edit (not earlier), run from the repo root:
    ```bash
-   python -m pytest -q
-   python -m ruff check . --output-format concise
-   python -m mypy
+   # Windows (PowerShell or cmd)
+   .venv\Scripts\python -m pytest -q
+   .venv\Scripts\python -m ruff check . --output-format concise
+   .venv\Scripts\python -m mypy
+
+   # macOS / Linux
+   .venv/bin/python -m pytest -q
+   .venv/bin/python -m ruff check . --output-format concise
+   .venv/bin/python -m mypy
    ```
-   Invoke the repo venv interpreter explicitly: `.venv\Scripts\python.exe`
-   on Windows, `.venv/bin/python` on macOS/Linux.
+   Always use the repo venv interpreter (`.venv\Scripts\python` or
+   `.venv/bin/python`) — never bare `python`, which may differ at the PATH.
    For skill/docs work also run: `cmd skills list` (no load failures).
 2. If anything fails, fix it and rerun until green. Never leave broken code.
 3. Report as evidence (numbers only, no "should pass"):

@@ -45,11 +45,14 @@ by tests alone:
 2. **Test boundaries.** Tests must stub the *network* (`RecordingTransport`,
    `httpx.MockTransport`, injected clients), never the model's judgement. A test
    that hard-codes "this PR is high risk" without a payload from the real
-   contract is simulating intelligence — reject it.
+   contract is simulating intelligence — reject it. Feeding fixed answers to
+   downstream logic is not that: `tests/unit/test_runner.py::StubProvider`
+   exists to check scoring arithmetic against known inputs, and it never stands
+   in for a decision about a real pull request.
 3. **Minimal diff.** No drive-by reformat. If unrelated formatting appears,
    ask the author to split it.
 4. **Docstrings.** New modules should record constraints a reader could not
-   infer (the `#/` attribute comments and module headers are the house style,
+   infer (the `#:` attribute comments and module headers are the house style,
    modeled on `gatewise/review/loop.py`); narration-style comments are noise.
 
 ## Evidence format for the review comment

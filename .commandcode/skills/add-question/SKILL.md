@@ -9,7 +9,7 @@ description: Add or change a decision question in the versioned Gatewise questio
 
 1. Read `@docs/agents/questions.md` — type shapes, banding rule, versioning.
 2. Edit `gatewise/decisions/questions/pull_request.yaml`; **bump `version`** on
-   any rubric wording/criteria/label-set change.
+   any rubric wording/criteria/threshold/label-set change.
 3. Update `tests/unit/test_registry.py` and any fixture quoting the criteria.
 4. New planner routing must be banded (`>= level`, `>= 0.5`) in
    `gatewise/actions/pipeline.py`; exact-float routing is a bug.

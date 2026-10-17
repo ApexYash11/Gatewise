@@ -8,10 +8,13 @@ argument-hint: "[owner/repo#number]"
 
 ## Steps
 
-1. Read `@docs/agents/reviews.md` — it is the playbook; follow its order:
-   hardcheck the six invariants first, then quality gates, then the diff.
-2. For an open GitHub PR, fetch the view: `gh pr view <number> --json title,body`
-   and `gh pr diff <number>`; keep `owner/repo#number` from the arguments.
+1. Fetch the diff first — every check below searches it:
+   `gh pr view <number> --repo <owner/repo> --json title,body` and
+   `gh pr diff <number> --repo <owner/repo>`, taking `owner/repo` from the
+   `owner/repo#number` argument. Pass `--repo`: without it `gh` reads the local
+   clone's repository, not the one named in the argument.
+2. Read `@docs/agents/reviews.md` — the playbook; sweep in its order: the six
+   invariants against the fetched diff, then the quality gates, then the diff.
 3. Post the evidence block from the playbook (tests/ruff/mypy real numbers,
    fallback `none`, allowlist `untouched`, webhook order `intact`).
 

@@ -8,8 +8,8 @@ The `/add-question` skill points here. The registry is
 | Type | Shape | Rules |
 |---|---|---|
 | `noul` | `noul: 0..1` probability | "How likely is X" — binary judgement with a calibrated band |
-| `choice` | `choice`, `probabilities` over a fixed label set | Label set must be closed; unknown labels reject |
-| `score` | `score` 0..4, `legend` (5 levels), `probabilities` | Policy reads `resolve_level()`, never exact floats |
+| `choice` | `choice`, `probabilities` over the labels in `criteria` | Labels stay closed, but nothing in the response path validates a returned label against them |
+| `score` | `score`, `legend`, `probabilities` over an ordered `criteria` list | A zero-based ordered rubric; `pr_risk` is currently 0..4. Policy reads `resolve_level()`, never exact floats |
 
 Jev is non-deterministic: planner thresholds use bands (`>= 3`,
 `>= 0.5`), and any new policy must do the same. Exact-float routing is a bug.
@@ -29,12 +29,13 @@ incomparable — that is the one failure mode versioning exists to prevent.
 ## Adding a question
 
 1. Decide type first (`noul` for a likelihood, `choice` for a category, `score`
-   only for the 0..4 rubric scale).
+   for a zero-based ordered rubric — `pr_risk` is 0..4 today).
 2. Write instructions as a single explicit ask; put the decision rule the model
    should apply into `criteria`.
-3. Add the question to the YAML **and** the six-question batching expectation in
-   `gatewise/decisions/jev.py` stays generic — provider code must not name
-   specific questions (provider-independently above the provider).
+3. Add the question to the YAML. `gatewise/decisions/jev.py` stays generic: the
+   provider batches whatever the registry supplies, so nothing there names a
+   specific question. The six-question expectation lives in the tests — update
+   the fixtures and assertions that count questions instead.
 4. If the planner (`gatewise/actions/pipeline.py`) should route on it, add a
    *banded* rule; otherwise routing stays policy-free.
 5. Tests: registry validation (`test_registry.py`),
