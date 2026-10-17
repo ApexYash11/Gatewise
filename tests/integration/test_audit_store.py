@@ -7,6 +7,7 @@ import json
 import pytest
 import typesafe_sdk
 from conftest import RecordingTransport
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gatewise.actions import DecisionPipeline
@@ -14,11 +15,19 @@ from gatewise.audit import (
     AuditStore,
     create_engine,
     create_schema,
+    migrate_legacy_fingerprints,
     session_scope,
+)
+from gatewise.audit.models import (
+    ActionRecord,
+    DecisionRunRecord,
+    PullRequestRecord,
+    Repository,
 )
 from gatewise.context import build_context
 from gatewise.decisions.jev import JevDecisionProvider
 from gatewise.decisions.registry import load_registry
+from gatewise.github.dedup import action_fingerprint
 from gatewise.github.events import parse_pull_request_event
 
 REAL_PAYLOAD = {
@@ -449,3 +458,194 @@ async def test_repeat_event_updates_rather_than_duplicating_the_pr(store):
     listed = await audit.list_pull_requests()
     assert len(listed) == 1, "same PR number must not create a second record"
     assert listed[0][0].title == "Updated title"
+
+
+async def _seed_legacy_action(
+    session, fingerprint: str = "legacy-fingerprint"
+) -> None:
+    """Create repository, PR, run, and action with an old-format fingerprint.
+
+    Idempotent: re-running against the same session reuses existing rows so a
+    test can seed two actions that share one repository/PR/run.
+    """
+    repo = await session.scalar(
+        select(Repository).where(
+            Repository.owner == "octo", Repository.name == "repo"
+        )
+    )
+    if repo is None:
+        session.add(Repository(owner="octo", name="repo"))
+        await session.flush()
+        repo = await session.scalar(
+            select(Repository).where(
+                Repository.owner == "octo", Repository.name == "repo"
+            )
+        )
+
+    pr = await session.scalar(
+        select(PullRequestRecord).where(
+            PullRequestRecord.repository_id == repo.id,
+            PullRequestRecord.number == 42,
+        )
+    )
+    if pr is None:
+        session.add(
+            PullRequestRecord(
+                repository_id=repo.id,
+                number=42,
+                title="t",
+                author="u",
+                head_sha="abc123",
+            )
+        )
+        await session.flush()
+        pr = await session.scalar(
+            select(PullRequestRecord).where(
+                PullRequestRecord.repository_id == repo.id,
+                PullRequestRecord.number == 42,
+            )
+        )
+
+    run = await session.scalar(
+        select(DecisionRunRecord).where(
+            DecisionRunRecord.pull_request_id == pr.id
+        )
+    )
+    if run is None:
+        session.add(
+            DecisionRunRecord(
+                pull_request_id=pr.id,
+                provider="jev",
+                model="jev-latest",
+                is_official_jev=True,
+                question_versions=[],
+                state_hash="run-state-hash",
+                status="succeeded",
+            )
+        )
+        await session.flush()
+        run = await session.scalar(
+            select(DecisionRunRecord).where(
+                DecisionRunRecord.pull_request_id == pr.id
+            )
+        )
+
+    session.add(
+        ActionRecord(
+            decision_run_id=run.id,
+            fingerprint=fingerprint,
+            action_type="add_label",
+            target="risk:high",
+            status="planned",
+        )
+    )
+    await session.flush()
+
+
+async def test_migrate_legacy_fingerprints_rewrites_old_encoding(tmp_path):
+    """Action rows with pre-#12 fingerprints are recomputed in the new encoding."""
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'migrate.db'}")
+    await create_schema(engine)
+
+    async with session_scope(engine) as session:
+        await _seed_legacy_action(session)
+
+    await migrate_legacy_fingerprints(engine)
+
+    async with session_scope(engine) as session:
+        row = await session.scalar(
+            select(ActionRecord).where(ActionRecord.action_type == "add_label")
+        )
+    await engine.dispose()
+
+    expected = action_fingerprint(
+        repository="octo/repo",
+        pull_request_number=42,
+        action_type="add_label",
+        target="risk:high",
+        decision_run_id="run-state-hash",
+        head_sha="abc123",
+    )
+    assert row.fingerprint == expected
+    assert row.fingerprint != "legacy-fingerprint"
+
+
+async def test_migrate_legacy_fingerprints_is_idempotent(tmp_path):
+    """A second pass makes no further changes."""
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'idem.db'}")
+    await create_schema(engine)
+
+    async with session_scope(engine) as session:
+        await _seed_legacy_action(session)
+
+    await migrate_legacy_fingerprints(engine)
+    await migrate_legacy_fingerprints(engine)
+
+    async with session_scope(engine) as session:
+        row = await session.scalar(
+            select(ActionRecord).where(ActionRecord.action_type == "add_label")
+        )
+    await engine.dispose()
+
+    expected = action_fingerprint(
+        repository="octo/repo",
+        pull_request_number=42,
+        action_type="add_label",
+        target="risk:high",
+        decision_run_id="run-state-hash",
+        head_sha="abc123",
+    )
+    assert row.fingerprint == expected
+
+
+async def test_migrate_legacy_fingerprints_skips_already_new_format(tmp_path):
+    """Rows already in the new encoding are left untouched."""
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'new.db'}")
+    await create_schema(engine)
+
+    expected = action_fingerprint(
+        repository="octo/repo",
+        pull_request_number=42,
+        action_type="add_label",
+        target="risk:high",
+        decision_run_id="run-state-hash",
+        head_sha="abc123",
+    )
+    async with session_scope(engine) as session:
+        await _seed_legacy_action(session, fingerprint=expected)
+
+    await migrate_legacy_fingerprints(engine)
+
+    async with session_scope(engine) as session:
+        row = await session.scalar(
+            select(ActionRecord).where(ActionRecord.action_type == "add_label")
+        )
+    await engine.dispose()
+    assert row.fingerprint == expected
+
+
+async def test_migrate_legacy_fingerprints_avoids_collision(tmp_path):
+    """Two legacy rows converging on the same new fingerprint are not merged."""
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'collision.db'}")
+    await create_schema(engine)
+
+    expected = action_fingerprint(
+        repository="octo/repo",
+        pull_request_number=42,
+        action_type="add_label",
+        target="risk:high",
+        decision_run_id="run-state-hash",
+        head_sha="abc123",
+    )
+    async with session_scope(engine) as session:
+        await _seed_legacy_action(session, fingerprint=expected)
+        await _seed_legacy_action(session, fingerprint="other-legacy-fingerprint")
+
+    await migrate_legacy_fingerprints(engine)
+
+    async with session_scope(engine) as session:
+        rows = (await session.execute(select(ActionRecord))).scalars().all()
+    await engine.dispose()
+
+    assert len(rows) == 2
+    assert any(r.fingerprint == expected for r in rows)
