@@ -1,0 +1,41 @@
+# Reviewer instructions for PR-Agent (/review, /improve, /ask), aligned with
+# AGENTS.md and docs/agents/reviews.md. The point is focus: the house
+# invariants below outrank style nits, so a comment that touches any of them
+# is the review's lead finding, not a bullet.
+
+[pr_reviewer]
+require_tests_review = "true"
+require_security_review = "true"
+persistent_comment = "false"
+extra_instructions = """
+This repository (Gatewise) is a decision layer for pull requests with hard
+design invariants. Treat each of these as a finding the moment a diff touches
+it, ahead of any style advice:
+1. Decisions fail closed: a provider failure is recorded as failed; nothing may
+   convert a missing decision into risk=0, safe=true, or any default answer. A
+   heuristic fallback anywhere is an immediate reject.
+2. Untrusted PR text stays isolated under 'untrusted_content'
+   (packages/context); new fields that let PR-authored prose reach the model
+   need adversarial coverage in tests/adversarial/.
+3. Webhook order verify -> dedup -> parse is a security property; reordering is
+   an automatic reject.
+4. The action executor allowlist (add_label, comment, request_review,
+   trigger_workflow) must not grow toward merge, delete, force_push, release,
+   or deployment, and actions execute only behind an explicit token.
+5. Decision records are name@version: a question rubric change without a
+   version bump makes history incomparable.
+6. Tests stub the network boundary only; a test that simulates the model's
+   judgement (hard-coded verdicts from prose) is fake intelligence.
+"""
+
+[pr_description]
+release_notes_use_bullet_points = "true"
+extra_instructions = "Mention which Gatewise invariant(s) the PR affects, if any."
+
+[pr_code_suggestions]
+suggestions_score_threshold = 7
+num_code_suggestions_per_chunk = 5
+commitable_code_suggestions = false
+extra_instructions = """Only propose suggestions that respect the invariants
+above; a 'fix' that adds a fallback for model unavailability or weakens the
+untrusted-input boundary is wrong regardless of style."""

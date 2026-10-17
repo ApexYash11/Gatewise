@@ -1,0 +1,44 @@
+name: PR Agent
+
+# Comment-triggered only. This repository is public but low-stared, so hosted
+# reviewers give it one rate-limited review per hour at best; a self-run action
+# costs neither. Reviews stay explicit: nothing runs until someone asks a PR a
+# question (/review, /improve, /ask, /describe as issue comments). No
+# checkout happens here and no code from a fork is executed, so the
+# pull_request_target fork-security problem does not apply.
+on:
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+
+jobs:
+  pr_agent_job:
+    if: ${{ github.event.sender.type != 'Bot' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    name: pr-agent on PR comment
+    concurrency:
+      group: pr-agent-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      - name: PR Agent action step
+        id: pragent
+        # Pinned to a published release image rather than @main: the workflow
+        # holds a write token and consumes a secret, so it should not track a
+        # moving branch.
+        uses: docker://pragent/pr-agent:0.47.0-github_action
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENROUTER__KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          config.model: "openrouter/auto"
+          config.fallback_models: '["openrouter/free"]'
+          # Nothing automatic: the value of this workflow is that a human asked
+          # for a review, and the comment quotes that request.
+          github_action_config.auto_review: "false"
+          github_action_config.auto_describe: "false"
+          github_action_config.auto_improve: "false"
