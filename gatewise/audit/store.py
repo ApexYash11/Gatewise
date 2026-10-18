@@ -163,7 +163,9 @@ class AuditStore:
                 decision_run_id=run.state_hash,
             )
             if await self.has_fingerprint(
-                action["fingerprint"], legacy_fingerprint=legacy_fingerprint
+                action["fingerprint"],
+                legacy_fingerprint=legacy_fingerprint,
+                legacy_target=action.get("target"),
             ):
                 continue
             # The IntegrityError is caught *outside* the savepoint: exiting a
@@ -264,7 +266,11 @@ class AuditStore:
         return list(await self._session.scalars(query))
 
     async def has_fingerprint(
-        self, fingerprint: str, *, legacy_fingerprint: str | None = None
+        self,
+        fingerprint: str,
+        *,
+        legacy_fingerprint: str | None = None,
+        legacy_target: str | None = None,
     ) -> bool:
         """Whether an action with this identity was already planned.
 
@@ -278,6 +284,7 @@ class AuditStore:
             identities.append(
                 and_(
                     ActionRecord.fingerprint == legacy_fingerprint,
+                    ActionRecord.target == legacy_target,
                     DecisionRunRecord.head_sha.is_(None),
                 )
             )
@@ -354,6 +361,7 @@ class AuditStore:
                     .join(DecisionRunRecord)
                     .where(
                         ActionRecord.fingerprint == legacy_fingerprint,
+                        ActionRecord.target == action.get("target"),
                         DecisionRunRecord.head_sha.is_(None),
                     )
                 )

@@ -510,6 +510,7 @@ async def _seed_legacy_action(
     run_head_sha: str | None = "abc123",
     pr_head_sha: str | None = "abc123",
     action_status: str = "planned",
+    action_target: str = "risk:high",
 ) -> None:
     """Create repository, PR, run, and action with an old-format fingerprint.
 
@@ -590,7 +591,7 @@ async def _seed_legacy_action(
                 decision_run_id="run-state-hash",
             ),
             action_type="add_label",
-            target="risk:high",
+            target=action_target,
             status=action_status,
         )
     )
@@ -731,7 +732,9 @@ async def test_migrate_legacy_fingerprints_skips_run_without_head_sha(tmp_path):
     )
 
 
-async def test_claim_pending_retries_failed_legacy_action_without_head_sha(tmp_path):
+async def test_claim_pending_retries_failed_legacy_action_without_head_sha(
+    tmp_path,
+) -> None:
     engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'legacy-dedup.db'}")
     await create_schema(engine)
 
@@ -773,6 +776,40 @@ async def test_claim_pending_retries_failed_legacy_action_without_head_sha(tmp_p
 
     await engine.dispose()
     assert row is not None and row.status == "performed"
+
+
+async def test_headless_legacy_target_does_not_suppress_other_label(tmp_path) -> None:
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'legacy-target.db'}")
+    await create_schema(engine)
+
+    async with session_scope(engine) as session:
+        await _seed_legacy_action(
+            session,
+            run_head_sha=None,
+            action_status="performed",
+            action_target="risk:high",
+        )
+        run = await session.scalar(select(DecisionRunRecord))
+        assert run is not None
+        audit = AuditStore(session)
+        action = {
+            "action_type": "add_label",
+            "target": "security:review",
+            "fingerprint": action_fingerprint(
+                repository="octo/repo",
+                pull_request_number=42,
+                action_type="add_label",
+                target="security:review",
+                decision_run_id="run-state-hash",
+                head_sha="new-head",
+            ),
+        }
+
+        claimed = await audit.claim_pending([action], run_id=run.id)
+
+    await engine.dispose()
+    assert len(claimed) == 1
+    assert claimed[0]["fingerprint"] == action["fingerprint"]
 
 
 async def test_migrate_legacy_fingerprints_avoids_collision(tmp_path):
