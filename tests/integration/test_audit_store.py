@@ -8,6 +8,7 @@ import pytest
 import typesafe_sdk
 from conftest import RecordingTransport
 from sqlalchemy import inspect, select
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gatewise.actions import DecisionPipeline
@@ -346,6 +347,25 @@ async def test_create_schema_upgrades_existing_audit_databases(tmp_path):
     assert len(rows) == 1, "existing audit data survives the upgrade"
     assert rows[0][0] == "legacy-fingerprint"
     assert rows[0][1] is None and rows[0][2] is None
+
+
+async def test_create_schema_tolerates_a_concurrent_duplicate_column(
+    tmp_path, monkeypatch
+) -> None:
+    from gatewise.audit import db as audit_db
+
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'concurrent-upgrade.db'}")
+    await create_schema(engine)
+    original_columns_by_table = audit_db._columns_by_table
+
+    def stale_columns(sync_connection: Connection) -> dict[str, set[str]]:
+        columns = original_columns_by_table(sync_connection)
+        columns["actions"].discard("claimed_at")
+        return columns
+
+    monkeypatch.setattr(audit_db, "_columns_by_table", stale_columns)
+    await audit_db.create_schema(engine)
+    await engine.dispose()
 
 
 async def test_create_schema_adds_head_sha_to_existing_decision_runs(tmp_path):

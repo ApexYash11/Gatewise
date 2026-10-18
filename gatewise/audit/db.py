@@ -63,9 +63,10 @@ async def create_schema(engine: AsyncEngine) -> None:
             if column in existing[table]:
                 continue
             try:
-                await connection.exec_driver_sql(
-                    f"ALTER TABLE {table} ADD COLUMN {column} {column_type} NULL"
-                )
+                async with connection.begin_nested():
+                    await connection.exec_driver_sql(
+                        f"ALTER TABLE {table} ADD COLUMN {column} {column_type} NULL"
+                    )
             except SQLAlchemyError as exc:
                 # Two workers can upgrade the same old database: both see the
                 # column missing, the loser's ALTER fails with the duplicate
