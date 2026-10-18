@@ -11,8 +11,14 @@ context, not on an agent's prior review.
 
 ## Run
 
-The Gatewise CLI must be installed (`pip install gatewise`) and configured with
-`TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`. For a public PR, run:
+Until the first PyPI release is published, install the CLI from the public
+repository:
+
+```sh
+pip install "git+https://github.com/ApexYash11/Gatewise.git"
+```
+
+Configure `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`. For a public PR, run:
 
 ```sh
 gatewise review OWNER/REPOSITORY NUMBER --no-execute
