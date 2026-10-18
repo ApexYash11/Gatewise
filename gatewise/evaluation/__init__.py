@@ -24,6 +24,14 @@ from .metrics import (
     brier_score,
     mean_absolute_error,
 )
+from .reviewbench import (
+    REVIEWBENCH_REPOSITORY,
+    ReviewBenchCase,
+    ReviewBenchDataset,
+    ReviewBenchError,
+    ReviewBenchFinding,
+    load_reviewbench,
+)
 from .runner import DEFAULT_THRESHOLD, compare, run_dataset
 
 __all__ = [
@@ -35,9 +43,15 @@ __all__ = [
     "DatasetError",
     "EvaluationReport",
     "LabelSource",
+    "REVIEWBENCH_REPOSITORY",
+    "ReviewBenchCase",
+    "ReviewBenchDataset",
+    "ReviewBenchError",
+    "ReviewBenchFinding",
     "brier_score",
     "compare",
     "load_dataset",
+    "load_reviewbench",
     "mean_absolute_error",
     "run_dataset",
 ]
