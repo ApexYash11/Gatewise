@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from gatewise.github.dedup import DeliveryDeduplicator, action_fingerprint
+from gatewise.github.dedup import (
+    DeliveryDeduplicator,
+    _legacy_action_fingerprint,
+    action_fingerprint,
+)
 
 
 def test_first_delivery_is_not_a_duplicate():
@@ -71,6 +75,18 @@ def test_action_fingerprint_is_deterministic():
         decision_run_id="run-abc",
     )
     assert action_fingerprint(**kwargs) == action_fingerprint(**kwargs)
+
+
+def test_legacy_action_fingerprint_preserves_the_pre_12_encoding() -> None:
+    assert (
+        _legacy_action_fingerprint(
+            repository="octo/repo",
+            pull_request_number=42,
+            action_type="add_label",
+            decision_run_id="run-state-hash",
+        )
+        == "929d496cf4b2f2b7832ae186f9e074eb"
+    )
 
 
 def test_action_fingerprint_differs_by_action_type():

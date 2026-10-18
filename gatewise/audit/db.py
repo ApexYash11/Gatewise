@@ -11,15 +11,17 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import AsyncIterator
 
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, select, text
 from sqlalchemy.engine import Connection
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import NoSuchTableError, ProgrammingError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+
+from gatewise.github.dedup import _legacy_action_fingerprint, action_fingerprint
 
 from .models import Base
 
@@ -29,6 +31,7 @@ DEFAULT_URL = "sqlite+aiosqlite:///./gatewise.db"
 #: never alters existing tables, so older databases need this explicit,
 #: idempotent upgrade before the claim machinery can touch them.
 _MIGRATIONS: tuple[tuple[str, str, str], ...] = (
+    ("decision_runs", "head_sha", "VARCHAR(64)"),
     ("actions", "claimed_at", "TIMESTAMP"),
     ("actions", "claim_token", "VARCHAR(64)"),
 )
@@ -60,9 +63,10 @@ async def create_schema(engine: AsyncEngine) -> None:
             if column in existing[table]:
                 continue
             try:
-                await connection.exec_driver_sql(
-                    f"ALTER TABLE {table} ADD COLUMN {column} {column_type} NULL"
-                )
+                async with connection.begin_nested():
+                    await connection.exec_driver_sql(
+                        f"ALTER TABLE {table} ADD COLUMN {column} {column_type} NULL"
+                    )
             except SQLAlchemyError as exc:
                 # Two workers can upgrade the same old database: both see the
                 # column missing, the loser's ALTER fails with the duplicate
@@ -89,6 +93,96 @@ async def create_schema(engine: AsyncEngine) -> None:
             ),
             {"now": datetime.now(UTC).replace(tzinfo=None)},
         )
+
+    # Data migration after the schema is current: rewrite action fingerprints
+    # that were created with the pre-#12 encoding (no length-prefixing, no
+    # target or head SHA) so they match the deterministic identifier used by
+    # the current action_fingerprint. Safe to call repeatedly -- a second pass
+    # finds every row already in the new encoding and makes no changes.
+    await migrate_legacy_fingerprints(engine)
+
+
+async def migrate_legacy_fingerprints(engine: AsyncEngine) -> None:
+    """Rewrite action fingerprints created with the pre-#12 encoding.
+
+    PR #12 length-prefixed the fingerprint encoding and folded in the action
+    target and head commit. Rows written before the change keep their old
+    identity and can no longer be matched by new-format fingerprints, so a
+    re-review would re-perform an action that was already done.
+
+    Only fingerprints matching the exact pre-#12 encoding are rewritten. The
+    head SHA is stored on each decision run; the pull-request row is mutable and
+    may point at a newer commit. Rows without a per-run head SHA are left intact
+    because their original commit cannot be recovered safely. A recomputed
+    fingerprint that collides with another row is also left as-is.
+
+    Safe to call repeatedly: a second pass finds every row already in the new
+    encoding and makes no changes.
+    """
+    from .models import (
+        ActionRecord,
+        DecisionRunRecord,
+        PullRequestRecord,
+        Repository,
+    )
+
+    async with AsyncSession(engine) as session:
+        try:
+            result = await session.execute(
+                select(
+                    ActionRecord,
+                    DecisionRunRecord,
+                    PullRequestRecord,
+                    Repository,
+                )
+                .join(
+                    DecisionRunRecord,
+                    ActionRecord.decision_run_id == DecisionRunRecord.id,
+                )
+                .join(
+                    PullRequestRecord,
+                    DecisionRunRecord.pull_request_id == PullRequestRecord.id,
+                )
+                .join(
+                    Repository,
+                    PullRequestRecord.repository_id == Repository.id,
+                )
+            )
+        except (NoSuchTableError, ProgrammingError):
+            # Legacy schema: not all tables exist yet, nothing to migrate.
+            return
+        rows = result.all()
+        changed = 0
+        for action, run, pr, repo in rows:
+            legacy_fp = _legacy_action_fingerprint(
+                repository=f"{repo.owner}/{repo.name}",
+                pull_request_number=pr.number,
+                action_type=action.action_type,
+                decision_run_id=run.state_hash,
+            )
+            if action.fingerprint != legacy_fp or run.head_sha is None:
+                continue
+            new_fp = action_fingerprint(
+                repository=f"{repo.owner}/{repo.name}",
+                pull_request_number=pr.number,
+                action_type=action.action_type,
+                target=action.target or "",
+                decision_run_id=run.state_hash,
+                head_sha=run.head_sha,
+            )
+            collision = await session.scalar(
+                select(ActionRecord).where(
+                    ActionRecord.fingerprint == new_fp
+                )
+            )
+            if collision is not None and collision.id != action.id:
+                # Two legacy rows converged on the same new identity; keep
+                # both rather than merging distinct actions.
+                continue
+            action.fingerprint = new_fp
+            changed += 1
+        if changed:
+            await session.commit()
 
 
 def _columns_by_table(sync_connection: Connection) -> dict[str, set[str]]:

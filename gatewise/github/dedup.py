@@ -103,3 +103,20 @@ def action_fingerprint(
     # dedup identifier can have.
     payload = "".join(f"{len(part)}:{part}" for part in parts)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
+
+
+def _legacy_action_fingerprint(
+    *,
+    repository: str,
+    pull_request_number: int,
+    action_type: str,
+    decision_run_id: Any,
+) -> str:
+    """Return the pre-#12 fingerprint for exact-match audit migrations only."""
+    parts = (
+        str(repository),
+        str(pull_request_number),
+        str(action_type),
+        str(decision_run_id),
+    )
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:32]

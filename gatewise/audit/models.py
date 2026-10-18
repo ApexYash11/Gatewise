@@ -115,6 +115,8 @@ class DecisionRunRecord(Base):
     model: Mapped[str] = mapped_column(String(128))
     is_official_jev: Mapped[bool] = mapped_column(Boolean, default=True)
     state_hash: Mapped[str] = mapped_column(String(64), index=True)
+    # Snapshot per run; the pull-request row's head_sha changes on each event.
+    head_sha: Mapped[str | None] = mapped_column(String(64))
     question_versions: Mapped[list] = mapped_column(JSON, default=list)
     #: What this run justified, regardless of whether the action was already
     #: recorded by an earlier run. Kept separate from the ``actions`` rows because

@@ -9,7 +9,7 @@ auditable, so nothing is written without it.
 Failures are rows, not absences. See ``store.py`` for why that distinction matters.
 """
 
-from .db import Base, create_engine, create_schema, session_scope
+from .db import Base, create_engine, create_schema, migrate_legacy_fingerprints, session_scope
 from .models import (
     ActionRecord,
     DecisionRecord,
@@ -29,5 +29,6 @@ __all__ = [
     "Repository",
     "create_engine",
     "create_schema",
+    "migrate_legacy_fingerprints",
     "session_scope",
 ]
