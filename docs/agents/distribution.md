@@ -10,7 +10,7 @@ How Gatewise reaches users: four installable surfaces, one decision layer. The
 | PyPI CLI `gatewise` | `gatewise review owner/name 123` | merged (PR #3) | #2 |
 | PyPI package `pip install gatewise` | wheel + release workflow ready (PR #12); publish needs the pypi.org pending publisher | merged | #4 |
 | GitHub Action | one workflow YAML + secret per repo | in review (PR #14) | #6 |
-| npm skill/plugin for coding agents | `cmd skills add ApexYash11/Gatewise` style | planned | #5 |
+| Agent skill for coding agents | `cmd skills add ApexYash11/Gatewise --skill gatewise-triage` | open for review (PR #16) | #5 |
 | Human-labelled evaluation dataset | evidence, not an install | parallel | #7 |
 
 ## Publish prerequisites (resolved / one owner step left)
@@ -46,12 +46,15 @@ then fails loudly. `tests/unit/test_action.py` pins the contract: ordered
 steps, pinned action refs, one marked Bot comment, secrets only via
 inputs, least-privilege permissions documented in the file header.
 
-## npm skill shape (phase 3)
+## Agent skill shape (phase 3)
 
-First shape: skills package (SKILL.md + `{COMMANDCODE_SKILL_DIR}`-relative
-usages) telling an agent to run the `gatewise` CLI — triage before reading
-files. Later shape: a thin MCP server wrapping `review`/`plan` as tools.
-Author via the bundled `skill-builder` skill, then distribute.
+Use the portable Agent Skills format: a `skills/<name>/SKILL.md` directory with
+`name` and `description` YAML frontmatter. The first skill lives at
+[`skills/gatewise-triage/SKILL.md`](../../skills/gatewise-triage/SKILL.md) and runs
+the installed `gatewise` CLI before reading PR changes. Install it with
+`cmd skills add ApexYash11/Gatewise --skill gatewise-triage`. It uses
+`--no-execute` by default; executing planned GitHub actions requires an explicit
+user request. A later phase may add a thin MCP server wrapping `review`/`plan`.
 
 ## Dataset (phase 4)
 
