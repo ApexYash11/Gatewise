@@ -77,7 +77,7 @@ def test_action_fingerprint_is_deterministic():
     assert action_fingerprint(**kwargs) == action_fingerprint(**kwargs)
 
 
-def test_legacy_action_fingerprint_preserves_the_pre_12_encoding():
+def test_legacy_action_fingerprint_preserves_the_pre_12_encoding() -> None:
     assert (
         _legacy_action_fingerprint(
             repository="octo/repo",
