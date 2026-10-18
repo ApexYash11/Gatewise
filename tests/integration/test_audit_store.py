@@ -7,7 +7,7 @@ import json
 import pytest
 import typesafe_sdk
 from conftest import RecordingTransport
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gatewise.actions import DecisionPipeline
@@ -27,7 +27,7 @@ from gatewise.audit.models import (
 from gatewise.context import build_context
 from gatewise.decisions.jev import JevDecisionProvider
 from gatewise.decisions.registry import load_registry
-from gatewise.github.dedup import action_fingerprint
+from gatewise.github.dedup import _legacy_action_fingerprint, action_fingerprint
 from gatewise.github.events import parse_pull_request_event
 
 REAL_PAYLOAD = {
@@ -111,6 +111,7 @@ async def test_successful_run_is_persisted_with_full_provenance(store):
     assert record.model == "jev-latest"
     assert record.is_official_jev is True
     assert record.state_hash == run.state_hash
+    assert record.head_sha == event.head_sha
     assert len(record.question_versions) == 6
     assert record.error is None
 
@@ -347,6 +348,28 @@ async def test_create_schema_upgrades_existing_audit_databases(tmp_path):
     assert rows[0][1] is None and rows[0][2] is None
 
 
+async def test_create_schema_adds_head_sha_to_existing_decision_runs(tmp_path):
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'run-head.db'}")
+    await create_schema(engine)
+
+    async with engine.begin() as connection:
+        await connection.exec_driver_sql(
+            "ALTER TABLE decision_runs DROP COLUMN head_sha"
+        )
+
+    await create_schema(engine)
+
+    async with engine.begin() as connection:
+        columns = await connection.run_sync(
+            lambda sync_connection: {
+                column["name"]
+                for column in inspect(sync_connection).get_columns("decision_runs")
+            }
+        )
+    await engine.dispose()
+    assert "head_sha" in columns
+
+
 async def test_actions_are_persisted_with_fingerprints(store):
     audit, _ = store
     pipeline, _ = make_pipeline(REAL_PAYLOAD)
@@ -461,7 +484,11 @@ async def test_repeat_event_updates_rather_than_duplicating_the_pr(store):
 
 
 async def _seed_legacy_action(
-    session, fingerprint: str = "legacy-fingerprint"
+    session,
+    fingerprint: str | None = None,
+    *,
+    run_head_sha: str | None = "abc123",
+    pr_head_sha: str | None = "abc123",
 ) -> None:
     """Create repository, PR, run, and action with an old-format fingerprint.
 
@@ -495,7 +522,7 @@ async def _seed_legacy_action(
                 number=42,
                 title="t",
                 author="u",
-                head_sha="abc123",
+                head_sha=pr_head_sha,
             )
         )
         await session.flush()
@@ -520,6 +547,7 @@ async def _seed_legacy_action(
                 is_official_jev=True,
                 question_versions=[],
                 state_hash="run-state-hash",
+                head_sha=run_head_sha,
                 status="succeeded",
             )
         )
@@ -533,7 +561,13 @@ async def _seed_legacy_action(
     session.add(
         ActionRecord(
             decision_run_id=run.id,
-            fingerprint=fingerprint,
+            fingerprint=fingerprint
+            or _legacy_action_fingerprint(
+                repository="octo/repo",
+                pull_request_number=42,
+                action_type="add_label",
+                decision_run_id="run-state-hash",
+            ),
             action_type="add_label",
             target="risk:high",
             status="planned",
@@ -613,6 +647,8 @@ async def test_migrate_legacy_fingerprints_skips_already_new_format(tmp_path):
     )
     async with session_scope(engine) as session:
         await _seed_legacy_action(session, fingerprint=expected)
+        pr = await session.scalar(select(PullRequestRecord))
+        pr.head_sha = "newer-head"
 
     await migrate_legacy_fingerprints(engine)
 
@@ -624,8 +660,58 @@ async def test_migrate_legacy_fingerprints_skips_already_new_format(tmp_path):
     assert row.fingerprint == expected
 
 
+async def test_migrate_legacy_fingerprints_only_rewrites_exact_legacy_rows(tmp_path):
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'exact-legacy.db'}")
+    await create_schema(engine)
+
+    async with session_scope(engine) as session:
+        await _seed_legacy_action(session, pr_head_sha="newer-head")
+        await _seed_legacy_action(session, fingerprint="unknown-legacy-fingerprint")
+
+    await migrate_legacy_fingerprints(engine)
+
+    async with session_scope(engine) as session:
+        rows = (await session.execute(select(ActionRecord))).scalars().all()
+    await engine.dispose()
+
+    expected = action_fingerprint(
+        repository="octo/repo",
+        pull_request_number=42,
+        action_type="add_label",
+        target="risk:high",
+        decision_run_id="run-state-hash",
+        head_sha="abc123",
+    )
+    assert {row.fingerprint for row in rows} == {
+        expected,
+        "unknown-legacy-fingerprint",
+    }
+
+
+async def test_migrate_legacy_fingerprints_skips_run_without_head_sha(tmp_path):
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'missing-head.db'}")
+    await create_schema(engine)
+
+    async with session_scope(engine) as session:
+        await _seed_legacy_action(
+            session, run_head_sha=None, pr_head_sha="newer-head"
+        )
+
+    await migrate_legacy_fingerprints(engine)
+
+    async with session_scope(engine) as session:
+        row = await session.scalar(select(ActionRecord))
+    await engine.dispose()
+    assert row.fingerprint == _legacy_action_fingerprint(
+        repository="octo/repo",
+        pull_request_number=42,
+        action_type="add_label",
+        decision_run_id="run-state-hash",
+    )
+
+
 async def test_migrate_legacy_fingerprints_avoids_collision(tmp_path):
-    """Two legacy rows converging on the same new fingerprint are not merged."""
+    """A legacy row colliding with a current fingerprint is preserved."""
     engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'collision.db'}")
     await create_schema(engine)
 
@@ -639,7 +725,7 @@ async def test_migrate_legacy_fingerprints_avoids_collision(tmp_path):
     )
     async with session_scope(engine) as session:
         await _seed_legacy_action(session, fingerprint=expected)
-        await _seed_legacy_action(session, fingerprint="other-legacy-fingerprint")
+        await _seed_legacy_action(session)
 
     await migrate_legacy_fingerprints(engine)
 
@@ -647,5 +733,12 @@ async def test_migrate_legacy_fingerprints_avoids_collision(tmp_path):
         rows = (await session.execute(select(ActionRecord))).scalars().all()
     await engine.dispose()
 
-    assert len(rows) == 2
-    assert any(r.fingerprint == expected for r in rows)
+    assert {row.fingerprint for row in rows} == {
+        expected,
+        _legacy_action_fingerprint(
+            repository="octo/repo",
+            pull_request_number=42,
+            action_type="add_label",
+            decision_run_id="run-state-hash",
+        ),
+    }

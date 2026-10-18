@@ -119,6 +119,7 @@ class AuditStore:
             model=run.model,
             is_official_jev=run.is_official_jev,
             state_hash=run.state_hash,
+            head_sha=event.head_sha,
             question_versions=list(run.question_versions),
             planned_actions=[
                 {

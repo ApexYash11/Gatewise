@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from gatewise.github.dedup import action_fingerprint
+from gatewise.github.dedup import _legacy_action_fingerprint, action_fingerprint
 
 from .models import Base
 
@@ -31,6 +31,7 @@ DEFAULT_URL = "sqlite+aiosqlite:///./gatewise.db"
 #: never alters existing tables, so older databases need this explicit,
 #: idempotent upgrade before the claim machinery can touch them.
 _MIGRATIONS: tuple[tuple[str, str, str], ...] = (
+    ("decision_runs", "head_sha", "VARCHAR(64)"),
     ("actions", "claimed_at", "TIMESTAMP"),
     ("actions", "claim_token", "VARCHAR(64)"),
 )
@@ -108,11 +109,11 @@ async def migrate_legacy_fingerprints(engine: AsyncEngine) -> None:
     identity and can no longer be matched by new-format fingerprints, so a
     re-review would re-perform an action that was already done.
 
-    This migration recomputes every action fingerprint from the stable facts
-    stored on its row (repository, PR number, action type, target, the decision
-    run's state hash, and the head commit) and updates rows whose identity
-    changed. A recomputed fingerprint that would collide with another row is
-    left as-is, since merging two distinct actions would be wrong.
+    Only fingerprints matching the exact pre-#12 encoding are rewritten. The
+    head SHA is stored on each decision run; the pull-request row is mutable and
+    may point at a newer commit. Rows without a per-run head SHA are left intact
+    because their original commit cannot be recovered safely. A recomputed
+    fingerprint that collides with another row is also left as-is.
 
     Safe to call repeatedly: a second pass finds every row already in the new
     encoding and makes no changes.
@@ -152,16 +153,22 @@ async def migrate_legacy_fingerprints(engine: AsyncEngine) -> None:
         rows = result.all()
         changed = 0
         for action, run, pr, repo in rows:
+            legacy_fp = _legacy_action_fingerprint(
+                repository=f"{repo.owner}/{repo.name}",
+                pull_request_number=pr.number,
+                action_type=action.action_type,
+                decision_run_id=run.state_hash,
+            )
+            if action.fingerprint != legacy_fp or run.head_sha is None:
+                continue
             new_fp = action_fingerprint(
                 repository=f"{repo.owner}/{repo.name}",
                 pull_request_number=pr.number,
                 action_type=action.action_type,
                 target=action.target or "",
                 decision_run_id=run.state_hash,
-                head_sha=pr.head_sha or "",
+                head_sha=run.head_sha,
             )
-            if new_fp == action.fingerprint:
-                continue
             collision = await session.scalar(
                 select(ActionRecord).where(
                     ActionRecord.fingerprint == new_fp
