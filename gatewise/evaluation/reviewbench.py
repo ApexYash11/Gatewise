@@ -155,14 +155,26 @@ def _parse_finding(raw: Any, filename: str) -> ReviewBenchFinding:
     source = raw["source"]
     if not isinstance(source, dict) or not isinstance(source.get("type"), str):
         raise ReviewBenchError(f"{filename}: finding source needs a type")
-    disposition = str(raw["tp_fp"])
+    category = raw["category"]
+    severity = raw["severity"]
+    disposition = raw["tp_fp"]
+    producer = raw["producer"]
+    labels = {
+        "category": category,
+        "severity": severity,
+        "tp_fp": disposition,
+        "producer": producer,
+    }
+    invalid = [name for name, value in labels.items() if not isinstance(value, str)]
+    if invalid:
+        raise ReviewBenchError(f"{filename}: finding labels must be strings: {', '.join(invalid)}")
     if disposition not in {"tp", "fp"}:
         raise ReviewBenchError(f"{filename}: unsupported finding disposition {disposition!r}")
     return ReviewBenchFinding(
-        category=str(raw["category"]),
-        severity=str(raw["severity"]),
+        category=category,
+        severity=severity,
         disposition=disposition,
-        producer=str(raw["producer"]),
+        producer=producer,
         source_type=source["type"],
     )
 

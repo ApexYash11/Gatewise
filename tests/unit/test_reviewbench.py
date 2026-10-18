@@ -83,3 +83,13 @@ def test_reviewbench_rejects_unknown_disposition(tmp_path):
 
     with pytest.raises(ReviewBenchError, match="disposition"):
         load_reviewbench(root, source_revision="a" * 40)
+
+
+@pytest.mark.parametrize("field", ["category", "severity", "producer"])
+def test_reviewbench_rejects_non_string_native_labels(tmp_path, field):
+    malformed = finding()
+    malformed[field] = None
+    root = write_reviewbench(tmp_path, findings=[malformed])
+
+    with pytest.raises(ReviewBenchError, match="labels must be strings"):
+        load_reviewbench(root, source_revision="a" * 40)
