@@ -489,6 +489,7 @@ async def _seed_legacy_action(
     *,
     run_head_sha: str | None = "abc123",
     pr_head_sha: str | None = "abc123",
+    action_status: str = "planned",
 ) -> None:
     """Create repository, PR, run, and action with an old-format fingerprint.
 
@@ -570,7 +571,7 @@ async def _seed_legacy_action(
             ),
             action_type="add_label",
             target="risk:high",
-            status="planned",
+            status=action_status,
         )
     )
     await session.flush()
@@ -710,12 +711,14 @@ async def test_migrate_legacy_fingerprints_skips_run_without_head_sha(tmp_path):
     )
 
 
-async def test_claim_pending_detects_legacy_action_without_head_sha(tmp_path):
+async def test_claim_pending_retries_failed_legacy_action_without_head_sha(tmp_path):
     engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'legacy-dedup.db'}")
     await create_schema(engine)
 
     async with session_scope(engine) as session:
-        await _seed_legacy_action(session, run_head_sha=None)
+        await _seed_legacy_action(
+            session, run_head_sha=None, action_status="failed"
+        )
         run = await session.scalar(select(DecisionRunRecord))
         assert run is not None
         audit = AuditStore(session)
@@ -733,9 +736,23 @@ async def test_claim_pending_detects_legacy_action_without_head_sha(tmp_path):
         }
 
         claimed = await audit.claim_pending([action], run_id=run.id)
+        legacy_fingerprint = _legacy_action_fingerprint(
+            repository="octo/repo",
+            pull_request_number=42,
+            action_type="add_label",
+            decision_run_id="run-state-hash",
+        )
+        assert len(claimed) == 1
+        assert claimed[0]["fingerprint"] == legacy_fingerprint
+        await audit.mark_action(
+            claimed[0]["fingerprint"],
+            "performed",
+            claim_token=claimed[0]["claim_token"],
+        )
+        row = await session.scalar(select(ActionRecord))
 
     await engine.dispose()
-    assert claimed == []
+    assert row is not None and row.status == "performed"
 
 
 async def test_migrate_legacy_fingerprints_avoids_collision(tmp_path):

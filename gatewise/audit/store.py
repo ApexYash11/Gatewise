@@ -343,9 +343,21 @@ class AuditStore:
                 if identity is not None
                 else None
             )
-            if not await self.has_fingerprint(
-                fingerprint, legacy_fingerprint=legacy_fingerprint
-            ):
+            claim_fingerprint = await self._session.scalar(
+                select(ActionRecord.fingerprint).where(
+                    ActionRecord.fingerprint == fingerprint
+                )
+            )
+            if claim_fingerprint is None and legacy_fingerprint is not None:
+                claim_fingerprint = await self._session.scalar(
+                    select(ActionRecord.fingerprint)
+                    .join(DecisionRunRecord)
+                    .where(
+                        ActionRecord.fingerprint == legacy_fingerprint,
+                        DecisionRunRecord.head_sha.is_(None),
+                    )
+                )
+            if claim_fingerprint is None:
                 try:
                     async with self._session.begin_nested():
                         self._session.add(
@@ -358,13 +370,15 @@ class AuditStore:
                             )
                         )
                         await self._session.flush()
+                    claim_fingerprint = fingerprint
                 except IntegrityError:
-                    pass  # A concurrent claim created it first.
+                    # A concurrent claim created the current fingerprint first.
+                    claim_fingerprint = fingerprint
             claim_token = secrets.token_hex(8)
             claim_update = await self._session.execute(
                 update(ActionRecord)
                 .where(
-                    ActionRecord.fingerprint == fingerprint,
+                    ActionRecord.fingerprint == claim_fingerprint,
                     or_(
                         ActionRecord.status.in_(("planned", "failed")),
                         and_(
@@ -379,7 +393,13 @@ class AuditStore:
             )
             # rowcount exists for UPDATE results; the typed Result stub omits it.
             if claim_update.rowcount:  # type: ignore[attr-defined]
-                claimed.append({**action, "claim_token": claim_token})
+                claimed.append(
+                    {
+                        **action,
+                        "fingerprint": claim_fingerprint,
+                        "claim_token": claim_token,
+                    }
+                )
         await self._session.flush()
         return claimed
 
