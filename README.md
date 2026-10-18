@@ -168,9 +168,9 @@ To summarize a pinned upstream checkout without sending data or credentials
 anywhere:
 
 ```bash
-git clone https://github.com/review-bench/ReviewBench ..\ReviewBench
-git -C ..\ReviewBench checkout 12e9d1aadbe7ddf4a480c6bd4ffb6ae37c7bcb67
-python scripts\summarize_reviewbench.py --root ..\ReviewBench --source-revision 12e9d1aadbe7ddf4a480c6bd4ffb6ae37c7bcb67
+git clone https://github.com/review-bench/ReviewBench ../ReviewBench
+git -C ../ReviewBench checkout 12e9d1aadbe7ddf4a480c6bd4ffb6ae37c7bcb67
+python scripts/summarize_reviewbench.py --root ../ReviewBench --source-revision 12e9d1aadbe7ddf4a480c6bd4ffb6ae37c7bcb67
 ```
 
 The JSON report includes the exact source repository and revision, case and finding
