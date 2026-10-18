@@ -57,6 +57,7 @@ def test_reviewbench_summary_preserves_native_provenance(tmp_path):
     assert summary["finding_count"] == 2
     assert summary["disposition"] == {"fp": 1, "tp": 1}
     assert summary["category"] == {"security": 2}
+    assert summary["severity"] == {"high": 2}
     assert summary["producer"] == {"human_review": 1, "llm_review": 1}
     assert summary["source_type"] == {"llm_review": 1, "review_comment": 1}
     assert summary["gatewise_triage_accuracy"] is None
