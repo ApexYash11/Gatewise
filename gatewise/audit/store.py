@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from gatewise.actions.pipeline import EvaluationRun
 from gatewise.decisions.schemas import ChoiceAnswer, NoulAnswer, ScoreAnswer
+from gatewise.github.dedup import _legacy_action_fingerprint
 from gatewise.github.events import PullRequestEvent
 
 from .models import (
@@ -155,7 +156,15 @@ class AuditStore:
         # savepoint and a lost race collapses to "already recorded" rather than
         # aborting the transaction.
         for action in actions:
-            if await self.has_fingerprint(action["fingerprint"]):
+            legacy_fingerprint = _legacy_action_fingerprint(
+                repository=event.repository,
+                pull_request_number=event.number,
+                action_type=action["action_type"],
+                decision_run_id=run.state_hash,
+            )
+            if await self.has_fingerprint(
+                action["fingerprint"], legacy_fingerprint=legacy_fingerprint
+            ):
                 continue
             # The IntegrityError is caught *outside* the savepoint: exiting a
             # savepoint normally on a failed flush leaves the dependency
@@ -254,14 +263,28 @@ class AuditStore:
         query = select(ActionRecord).where(ActionRecord.decision_run_id == run_id)
         return list(await self._session.scalars(query))
 
-    async def has_fingerprint(self, fingerprint: str) -> bool:
+    async def has_fingerprint(
+        self, fingerprint: str, *, legacy_fingerprint: str | None = None
+    ) -> bool:
         """Whether an action with this identity was already planned.
 
         Survives a restart, unlike the in-memory deduplicator, so a replayed
-        webhook is still recognised as a repeat.
+        webhook is still recognised as a repeat. A legacy fingerprint is also
+        checked against runs without a saved head SHA, whose original head
+        cannot be recovered safely for migration.
         """
+        identities = [ActionRecord.fingerprint == fingerprint]
+        if legacy_fingerprint is not None:
+            identities.append(
+                and_(
+                    ActionRecord.fingerprint == legacy_fingerprint,
+                    DecisionRunRecord.head_sha.is_(None),
+                )
+            )
         existing = await self._session.scalar(
-            select(ActionRecord.id).where(ActionRecord.fingerprint == fingerprint)
+            select(ActionRecord.id)
+            .join(DecisionRunRecord)
+            .where(or_(*identities))
         )
         return existing is not None
 
@@ -290,11 +313,39 @@ class AuditStore:
 
         Returns the action dicts belonging to rows this call claimed.
         """
+        identity = (
+            await self._session.execute(
+                select(
+                    DecisionRunRecord.state_hash,
+                    PullRequestRecord.number,
+                    Repository.owner,
+                    Repository.name,
+                )
+                .join(
+                    PullRequestRecord,
+                    DecisionRunRecord.pull_request_id == PullRequestRecord.id,
+                )
+                .join(Repository, PullRequestRecord.repository_id == Repository.id)
+                .where(DecisionRunRecord.id == run_id)
+            )
+        ).one_or_none()
         stale = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=24)
         claimed: list[dict[str, Any]] = []
         for action in actions:
             fingerprint = action["fingerprint"]
-            if not await self.has_fingerprint(fingerprint):
+            legacy_fingerprint = (
+                _legacy_action_fingerprint(
+                    repository=f"{identity.owner}/{identity.name}",
+                    pull_request_number=identity.number,
+                    action_type=action["action_type"],
+                    decision_run_id=identity.state_hash,
+                )
+                if identity is not None
+                else None
+            )
+            if not await self.has_fingerprint(
+                fingerprint, legacy_fingerprint=legacy_fingerprint
+            ):
                 try:
                     async with self._session.begin_nested():
                         self._session.add(

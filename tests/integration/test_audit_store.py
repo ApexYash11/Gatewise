@@ -710,6 +710,34 @@ async def test_migrate_legacy_fingerprints_skips_run_without_head_sha(tmp_path):
     )
 
 
+async def test_claim_pending_detects_legacy_action_without_head_sha(tmp_path):
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'legacy-dedup.db'}")
+    await create_schema(engine)
+
+    async with session_scope(engine) as session:
+        await _seed_legacy_action(session, run_head_sha=None)
+        run = await session.scalar(select(DecisionRunRecord))
+        assert run is not None
+        audit = AuditStore(session)
+        action = {
+            "action_type": "add_label",
+            "target": "risk:high",
+            "fingerprint": action_fingerprint(
+                repository="octo/repo",
+                pull_request_number=42,
+                action_type="add_label",
+                target="risk:high",
+                decision_run_id="run-state-hash",
+                head_sha="new-head",
+            ),
+        }
+
+        claimed = await audit.claim_pending([action], run_id=run.id)
+
+    await engine.dispose()
+    assert claimed == []
+
+
 async def test_migrate_legacy_fingerprints_avoids_collision(tmp_path):
     """A legacy row colliding with a current fingerprint is preserved."""
     engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'collision.db'}")
