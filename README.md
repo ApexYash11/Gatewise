@@ -152,6 +152,31 @@ The bundled dataset uses **assistant-assessed** labels and is a smoke test for t
 harness, not evidence about decision quality. A human-labelled dataset of at least
 30 cases is still needed before any accuracy claim is meaningful.
 
+### Complementary ReviewBench evidence
+
+[ReviewBench](https://github.com/review-bench/ReviewBench) is a separate,
+MIT-licensed benchmark of real public pull requests with a human-reviewed golden
+set of **code-review findings**. Gatewise preserves those source-native finding
+labels (category, severity, true/false-positive disposition, producer, and source
+type) without converting them into its six triage questions.
+
+This is complementary evidence, **not Gatewise triage accuracy**: a finding-level
+code-review benchmark does not label a pull request's category, risk, breaking
+change, additional-testing, maintainer-review, or security-review decision.
+
+To summarize a pinned upstream checkout without sending data or credentials
+anywhere:
+
+```bash
+git clone https://github.com/review-bench/ReviewBench ..\ReviewBench
+git -C ..\ReviewBench checkout 12e9d1aadbe7ddf4a480c6bd4ffb6ae37c7bcb67
+python scripts\summarize_reviewbench.py --root ..\ReviewBench --source-revision 12e9d1aadbe7ddf4a480c6bd4ffb6ae37c7bcb67
+```
+
+The JSON report includes the exact source repository and revision, case and finding
+counts, plus native category/severity/disposition/producer/source-type breakdowns.
+It explicitly emits `"gatewise_triage_accuracy": null`.
+
 `smoke_jev.py` exits `0` on success, `2` when no key is configured, and `3` when
 the decision is unavailable (for example, insufficient credits).
 
