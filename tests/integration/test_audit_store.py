@@ -368,13 +368,18 @@ async def test_create_schema_tolerates_a_concurrent_duplicate_column(
     await engine.dispose()
 
 
-async def test_create_schema_adds_head_sha_to_existing_decision_runs(tmp_path):
+async def test_create_schema_adds_head_sha_to_existing_decision_runs(tmp_path) -> None:
     engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'run-head.db'}")
-    await create_schema(engine)
-
     async with engine.begin() as connection:
         await connection.exec_driver_sql(
-            "ALTER TABLE decision_runs DROP COLUMN head_sha"
+            "CREATE TABLE decision_runs ("
+            "id INTEGER PRIMARY KEY, pull_request_id INTEGER NOT NULL, "
+            "provider VARCHAR(64) NOT NULL, model VARCHAR(128) NOT NULL, "
+            "is_official_jev BOOLEAN NOT NULL, state_hash VARCHAR(64) NOT NULL, "
+            "question_versions JSON NOT NULL, planned_actions JSON NOT NULL, "
+            "latency_ms INTEGER NOT NULL, status VARCHAR(32) NOT NULL, "
+            "error TEXT, injection_flags JSON NOT NULL, started_at DATETIME NOT NULL, "
+            "completed_at DATETIME)"
         )
 
     await create_schema(engine)
