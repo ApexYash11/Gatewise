@@ -7,7 +7,10 @@ benchmark without them produces numbers that look like evidence but are not:
 - **Provenance is mandatory.** Every case declares who labelled it and how. A
   dataset of self-assessed labels is still useful for smoke-testing, but it must
   not be reported as human-validated accuracy. The report carries the label source
-  so the distinction cannot be lost.
+  so the distinction cannot be lost. Labels borrowed from another human process
+  (for example, maintainer-applied GitHub labels) are recorded as ``derived``:
+  they are human-produced, but they were not annotated against this repository's
+  question rubrics, so they never count as human-validated here.
 - **A label must exist for every question being scored.** Silently skipping a
   case because one label is missing would quietly shrink the denominator and
   inflate every metric.
@@ -21,7 +24,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 #: How a case's judgements were produced. Recorded on every case.
-LabelSource = Literal["human", "assistant", "unlabelled"]
+LabelSource = Literal["human", "assistant", "derived", "unlabelled"]
 
 
 class DatasetError(Exception):
@@ -145,7 +148,7 @@ def _parse_case(raw: dict[str, Any], filename: str) -> Case:
             f"{filename}: a case is missing {', '.join(missing)}"
         )
     source = raw.get("label_source", "human")
-    if source not in ("human", "assistant", "unlabelled"):
+    if source not in ("human", "assistant", "derived", "unlabelled"):
         raise DatasetError(
             f"{filename}: case {raw['id']!r} has unknown label_source {source!r}"
         )

@@ -154,8 +154,17 @@ async def test_score_questions_are_compared_by_level_not_raw_float(tmp_path):
     report = await run_dataset(provider, dataset, REGISTRY)
 
     # The stub's level is 2 and the label is 2, so this is a match.
-    assert report.binary["pr_risk"].true_positive == 1
-    assert report.binary["pr_risk"].accuracy == 1.0
+    assert report.score_correct["pr_risk"] == [True]
+    assert "pr_risk" not in report.binary
+    assert report.summary()["score_accuracy"]["pr_risk"] == 1.0
+
+
+async def test_comparison_reads_risk_accuracy_from_the_score_metric(tmp_path):
+    dataset = make_dataset(tmp_path, [case("a", "T", pr_risk=2)])
+    report = await run_dataset(StubProvider({"T": 0.5}), dataset, REGISTRY)
+
+    row = compare([report])[0]
+    assert row["pr_risk_accuracy"] == 1.0
 
 
 async def test_only_labelled_questions_contribute(tmp_path):
@@ -170,6 +179,23 @@ async def test_only_labelled_questions_contribute(tmp_path):
     assert "pr_risk" not in report.binary
     assert "pr_category" not in report.binary
     assert report.binary["pr_security_review"].total == 1
+
+
+async def test_choice_question_reports_accuracy_not_binary_counts(tmp_path):
+    """A choice has no false-positive split; precision/F1 would be misleading."""
+    dataset = make_dataset(
+        tmp_path,
+        [
+            case("a", "One", pr_category="dependency"),
+            case("b", "Two", pr_category="bug"),
+        ],
+    )
+    # The stub always says "dependency", so exactly one case is correct.
+    report = await run_dataset(StubProvider({"One": 0.5, "Two": 0.5}), dataset, REGISTRY)
+
+    assert report.choice_correct["pr_category"] == [True, False]
+    assert "pr_category" not in report.binary
+    assert report.summary()["choice_accuracy"]["pr_category"] == 0.5
 
 
 async def test_brier_score_is_recorded_for_calibration(tmp_path):

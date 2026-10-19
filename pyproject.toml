@@ -56,6 +56,8 @@ filterwarnings = ["ignore::DeprecationWarning"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Local agent scratch space (untracked); never project source.
+exclude = [".commandcode"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

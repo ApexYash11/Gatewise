@@ -61,6 +61,15 @@ def test_fully_human_dataset_is_marked_validated(tmp_path):
     assert load_dataset(path).metadata()["human_validated"] is True
 
 
+def test_derived_labels_are_not_marked_human_validated(tmp_path):
+    """A maintainer label borrowed for another purpose is not rubric annotation."""
+    path = write(tmp_path, {"name": "d", "cases": [case(label_source="derived")]})
+    metadata = load_dataset(path).metadata()
+
+    assert metadata["label_sources"] == {"derived": 1}
+    assert metadata["human_validated"] is False
+
+
 def test_case_builds_the_same_context_shape_as_the_pipeline(tmp_path):
     path = write(tmp_path, {"name": "d", "cases": [case(changed_files=["a.py", "b.py"])]})
     context = load_dataset(path).cases[0].to_context()
