@@ -1,0 +1,455 @@
+{
+  "name": "pr-triage-python-cpython-labels",
+  "version": 1,
+  "description": "Derived from maintainer-applied GitHub labels, not independently annotated against Gatewise's rubrics. Use for basic harness measurement only; never cite as human-validated accuracy.",
+  "provenance": {
+    "source_repository": "python/cpython",
+    "retrieval_method": "GitHub search + pull request files API",
+    "retrieved_at": "2026-10-18T18:43:21.788916+00:00",
+    "label_mapping": {
+      "type-security": "security",
+      "type-bug": "bug",
+      "type-feature": "feature",
+      "type-refactor": "refactor",
+      "docs": "documentation",
+      "tests": "test",
+      "dependencies": "dependency",
+      "build": "infrastructure",
+      "infra": "infrastructure"
+    },
+    "question": "pr_category",
+    "label_source": "derived",
+    "caveat": "Repository labels are human-applied but were not produced for the Gatewise question rubric."
+  },
+  "cases": [
+    {
+      "id": "python-cpython-159445",
+      "repository": "python/cpython",
+      "number": 159445,
+      "title": "gh-159428: Don't read mimetypes.knownfiles by default on Windows",
+      "description": "Make knownfiles empty on Windows so that only the registry is used by default. Files passed to init() or assigned to knownfiles explicitly are still read.\n\nThe default knownfiles are POSIX paths such as /etc/mime.types. On Windows these resolve against the root of the current drive (e.g. C:\\etc\\mime.types), a location that unprivileged users can usually create. \n\n\n<!-- gh-issue-number: gh-159428 -->\n* Issue: gh-159428\n<!-- /gh-issue-number -->\n",
+      "author": "cjames23",
+      "changed_files": [
+        "Lib/mimetypes.py",
+        "Lib/test/test_mimetypes.py",
+        "Misc/NEWS.d/next/Security/2026-10-15-03-47-08.gh-issue-159428.XHRKwY.rst"
+      ],
+      "labels": {
+        "pr_category": "security"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-security' mapped to pr_category='security'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/159445"
+    },
+    {
+      "id": "python-cpython-158474",
+      "repository": "python/cpython",
+      "number": 158474,
+      "title": "gh-158446: Reject float format precision near INT_MAX",
+      "description": "PyOS_double_to_string() now raises ValueError(\"precision too big\") for precisions above INT_MAX - 1024, matching what the format parsers already do above INT_MAX. Buffer size computations in pystrtod.c and dtoa.c add a few hundred to the precision using int / Py_ssize_t arithmetic and could wrap for such values, leading to a crash or incorrect output.\r\n\r\nAlso harden _Py_dg_dtoa() and rv_alloc() so their size arithmetic stays in range for any C caller.\r\n\r\n---\r\n\r\nThis was reviewed and approved via the PSRT in a report which we'll make public soon as security releases are about to be cut tomorrow.\r\n\r\n<!-- gh-issue-number: gh-158446 -->\r\n* Issue: gh-158446\r\n<!-- /gh-issue-number -->\r\n",
+      "author": "gpshead",
+      "changed_files": [
+        "Lib/test/test_format.py",
+        "Misc/NEWS.d/next/Security/2026-09-29-16-32-46.gh-issue-158446.dToaPr.rst",
+        "Python/dtoa.c",
+        "Python/pystrtod.c"
+      ],
+      "labels": {
+        "pr_category": "security"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-security' mapped to pr_category='security'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/158474"
+    },
+    {
+      "id": "python-cpython-158504",
+      "repository": "python/cpython",
+      "number": 158504,
+      "title": "gh-156293: Use-after-free for server-side SSLContext with sni_callback",
+      "description": "I believe this needs to be backported manually beyond 3.13? (cc @gpshead) I can create those PRs.\r\n\r\n<!-- gh-issue-number: gh-156293 -->\r\n* Issue: gh-156293\r\n<!-- /gh-issue-number -->\r\n",
+      "author": "sethmlarson",
+      "changed_files": [
+        "Doc/library/ssl.rst",
+        "Lib/test/test_ssl.py",
+        "Misc/NEWS.d/next/Security/2026-08-10-12-00-00.gh-issue-156293.sNIcbk.rst",
+        "Modules/_ssl.c"
+      ],
+      "labels": {
+        "pr_category": "security"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-security' mapped to pr_category='security'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/158504"
+    },
+    {
+      "id": "python-cpython-137972",
+      "repository": "python/cpython",
+      "number": 137972,
+      "title": "gh-131323: Add comprehensive key-value type documentation to dbm module",
+      "description": "<!--\r\nThanks for your contribution!\r\nPlease read this comment in its entirety. It's quite important.\r\n\r\n# Pull Request title\r\n\r\nIt should be in the following format:\r\n\r\n```\r\ngh-NNNNNN: Summary of the changes made\r\n```\r\n\r\nWhere: gh-NNNNNN refers to the GitHub issue number.\r\n\r\nMost PRs will require an issue number. Trivial changes, like fixing a typo, do not need an issue.\r\n\r\n# Backport Pull Request title\r\n\r\nIf this is a backport PR (PR made against branches other than `main`),\r\nplease ensure that the PR title is in the following format:\r\n\r\n```\r\n[X.Y] <title from the original PR> (GH-NNNNNN)\r\n```\r\n\r\nWhere: [X.Y] is the branch name, for example: [3.13].\r\n\r\nGH-NNNNNN refers to the PR number from `main`.\r\n\r\n-->\r\n\n\n<!-- gh-issue-number: gh-131323 -->\n* Issue: gh-131323\n<!-- /gh-issue-number -->\n\r\n\r\n<!-- readthedocs-preview cpython-previews start -->\r\n----\n\ud83d\udcda Documentation preview \ud83d\udcda: https://cpython-previews--137972.org.readthedocs.build/\n\r\n<!-- readthedocs-preview cpython-previews end -->",
+      "author": "furkanonder",
+      "changed_files": [
+        "Doc/library/dbm.rst",
+        "Lib/test/test_dbm_dumb.py",
+        "Lib/test/test_dbm_sqlite3.py"
+      ],
+      "labels": {
+        "pr_category": "bug"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-bug' mapped to pr_category='bug'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/137972"
+    },
+    {
+      "id": "python-cpython-158974",
+      "repository": "python/cpython",
+      "number": 158974,
+      "title": "gh-158973: Reset the warnings lock after fork in the child",
+      "description": "Reset the warnings lock in the child after fork, before clearing other threads\u2019 states. This prevents deadlocks when their finalizers issue warnings and the lock was held by a thread that no longer exists.  Record ownership before fork so the child can preserve the lock\u2019s recursion depth and update its owner ID if  the forking thread held it.  Adds regression tests for child-cleanup warnings and recursive ownership across fork.\r\n\r\nThe PR was developed with assistance from GPT 6.1 Sol.\r\n\r\n<!-- gh-issue-number: gh-158973 -->\r\n* Issue: gh-158973\r\n<!-- /gh-issue-number -->\r\n",
+      "author": "nascheme",
+      "changed_files": [
+        "Include/internal/pycore_interp_structs.h",
+        "Include/internal/pycore_lock.h",
+        "Include/internal/pycore_warnings.h",
+        "Lib/test/test_warnings/__init__.py",
+        "Misc/NEWS.d/next/Core_and_Builtins/2026-10-07-00-00-00.gh-issue-158973.warnings-fork.rst",
+        "Modules/posixmodule.c",
+        "Python/_warnings.c",
+        "Python/lock.c"
+      ],
+      "labels": {
+        "pr_category": "bug"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-bug' mapped to pr_category='bug'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/158974"
+    },
+    {
+      "id": "python-cpython-159433",
+      "repository": "python/cpython",
+      "number": 159433,
+      "title": "gh-159431: Handle immortal objects in _PyObject_XDecRefDelayed()",
+      "description": "Skip immortal objects both when queueing and when processing the queue, and remove the now redundant caller-side checks.\n\n<!-- gh-issue-number: gh-159431 -->\n* Issue: gh-159431\n<!-- /gh-issue-number -->\n",
+      "author": "nascheme",
+      "changed_files": [
+        "Lib/test/test_capi/test_object.py",
+        "Misc/NEWS.d/next/Core_and_Builtins/2026-10-14-18-45-35.gh-issue-159431.mVTMsA.rst",
+        "Objects/obmalloc.c",
+        "Objects/typeobject.c"
+      ],
+      "labels": {
+        "pr_category": "bug"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-bug' mapped to pr_category='bug'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/159433"
+    },
+    {
+      "id": "python-cpython-158819",
+      "repository": "python/cpython",
+      "number": 158819,
+      "title": "gh-158816: Skip useless hash table probe when deleting from split dicts",
+      "description": "# Summary\r\n\r\n`delitem_common()` currently calls `lookdict_index()` before checking whether the dictionary is combined or split.\r\n\r\nFor split dictionaries, the returned hash-table slot is not used. Therefore, the probe performed by `lookdict_index()` is redundant for split-table deletions.\r\n\r\nI propose moving `lookdict_index()` into the combined-table branch avoiding a full probe sequence for every deletion from a split dictionary.\r\n\r\n# Benchmark\r\nMeasured with a free-threaded build, -Og, without PGO. The benchmark deletes keys from materialized instance dictionaries; medians over 12 alternating runs:\r\n\r\n                        before   after    change\r\n    del d[k]             71.2     69.2 ns/op   -2.8%\r\n    d.pop(k)              98.9     96.1 ns/op   -2.8%\r\n    colliding hashes      78.0     74.4 ns/op   -4.6%\r\n\r\nCombined-table deletions are unchanged.\r\n\r\nClang also does not sink the `lookdict_index()` call into the branch at -O3 -DNDEBUG, so the improvement is not specific to the local -Og build.\r\n\r\n# Validation\r\n\r\nThe following test modules pass:\r\n\r\n- test_dict\r\n- test_dictviews\r\n- test_dictcomps\r\n\r\n\r\n<!--\r\nThanks for your contribution!\r\nPlease read this comment in its entirety. It's quite important.\r\n\r\n# Pull Request title\r\n\r\nIt should be in the following format:\r\n\r\n```\r\ngh-NNNNNN: Summary of the changes made\r\n```\r\n\r\nWhere: gh-NNNNNN refers to the GitHub issue number.\r\n\r\nMost PRs will require an issue number. Trivial changes, like fixing a typo, do not need an issue.\r\n\r\n# Backport Pull Request title\r\n\r\nIf this is a backport PR (PR made against branches other than `main`),\r\nplease ensure that the PR title is in the following format:\r\n\r\n```\r\n[X.Y] <title from the original PR> (GH-NNNNNN)\r\n```\r\n\r\nWhere: [X.Y] is the branch name, for example: [3.13].\r\n\r\nGH-NNNNNN refers to the PR number from `main`.\r\n\r\n-->\r\n\n\n<!-- gh-issue-number: gh-158816 -->\n* Issue: gh-158816\n<!-- /gh-issue-number -->\n",
+      "author": "hetaozdh",
+      "changed_files": [
+        "Misc/NEWS.d/next/Core_and_Builtins/2026-10-04-20-04-55.gh-issue-158816.9ulhWb.rst",
+        "Objects/dictobject.c"
+      ],
+      "labels": {
+        "pr_category": "feature"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-feature' mapped to pr_category='feature'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/158819"
+    },
+    {
+      "id": "python-cpython-157915",
+      "repository": "python/cpython",
+      "number": 157915,
+      "title": "gh-157899: Add support for fds pointing to symlinks in os.readlink().",
+      "description": "See issue #157899 and https://discuss.python.org/t/support-file-descriptors-in-os-readlink/109101/6 for context.\r\n\r\nCC @encukou \r\n\n\n<!-- gh-issue-number: gh-157899 -->\n* Issue: gh-157899\n<!-- /gh-issue-number -->\n",
+      "author": "OOTS",
+      "changed_files": [
+        "Doc/library/os.rst",
+        "Doc/whatsnew/3.16.rst",
+        "Lib/os.py",
+        "Lib/test/test_os/test_posix.py",
+        "Misc/NEWS.d/next/Library/2026-09-21-14-41-07.gh-issue-157899.s6vBQC.rst",
+        "Modules/clinic/posixmodule.c.h",
+        "Modules/posixmodule.c",
+        "configure",
+        "configure.ac",
+        "pyconfig.h.in"
+      ],
+      "labels": {
+        "pr_category": "feature"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-feature' mapped to pr_category='feature'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/157915"
+    },
+    {
+      "id": "python-cpython-159403",
+      "repository": "python/cpython",
+      "number": 159403,
+      "title": "gh-157899: Skip test_readlink_is_marked_as_supports_fd on older macOS & iOS",
+      "description": "- Generalize @requires_mac_ver logic to add @requires_ios_ver\n- Skip test_readlink_is_marked_as_supports_fd on lower Apple OS versions\n\n<!--\nThanks for your contribution!\nPlease read this comment in its entirety. It's quite important.\n\n# Pull Request title\n\nIt should be in the following format:\n\n```\ngh-NNNNNN: Summary of the changes made\n```\n\nWhere: gh-NNNNNN refers to the GitHub issue number.\n\nMost PRs will require an issue number. Trivial changes, like fixing a typo, do not need an issue.\n\n# Backport Pull Request title\n\nIf this is a backport PR (PR made against branches other than `main`),\nplease ensure that the PR title is in the following format:\n\n```\n[X.Y] <title from the original PR> (GH-NNNNNN)\n```\n\nWhere: [X.Y] is the branch name, for example: [3.13].\n\nGH-NNNNNN refers to the PR number from `main`.\n\n-->\n\n\n<!-- gh-issue-number: gh-157899 -->\n* Issue: gh-157899\n<!-- /gh-issue-number -->\n",
+      "author": "encukou",
+      "changed_files": [
+        "Lib/test/support/__init__.py",
+        "Lib/test/test_os/test_posix.py"
+      ],
+      "labels": {
+        "pr_category": "feature"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-feature' mapped to pr_category='feature'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/159403"
+    },
+    {
+      "id": "python-cpython-159367",
+      "repository": "python/cpython",
+      "number": 159367,
+      "title": "Move ASan CI job to `reusable-san.yml`",
+      "description": "This refactors the CI configuration for ASan to deduplicate some logic, and bring it together with the other sanitzers.\n\nAs a sideeffect, it will also run `--with-pydebug` and build with the Clang compiler.\n\n<!--\nThanks for your contribution!\nPlease read this comment in its entirety. It's quite important.\n\n# Pull Request title\n\nIt should be in the following format:\n\n```\ngh-NNNNNN: Summary of the changes made\n```\n\nWhere: gh-NNNNNN refers to the GitHub issue number.\n\nMost PRs will require an issue number. Trivial changes, like fixing a typo, do not need an issue.\n\n# Backport Pull Request title\n\nIf this is a backport PR (PR made against branches other than `main`),\nplease ensure that the PR title is in the following format:\n\n```\n[X.Y] <title from the original PR> (GH-NNNNNN)\n```\n\nWhere: [X.Y] is the branch name, for example: [3.13].\n\nGH-NNNNNN refers to the PR number from `main`.\n\n-->\n",
+      "author": "StanFromIreland",
+      "changed_files": [
+        ".github/workflows/build.yml",
+        ".github/workflows/reusable-san.yml",
+        "Lib/test/test_capi/test_mem.py"
+      ],
+      "labels": {
+        "pr_category": "refactor"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-refactor' mapped to pr_category='refactor'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/159367"
+    },
+    {
+      "id": "python-cpython-158281",
+      "repository": "python/cpython",
+      "number": 158281,
+      "title": "gh-158322: Tidy docstrings in `turtle` module",
+      "description": "This is the first round of what will probably be quite a few PRs, as I want to keep the diff in each one reasonably small.\r\n\r\nWith the introduction of `turtle-translations`, I\u2019d like to improve the existing docstrings so that they produce better translations. Along the way, this PR also includes a handful of ad hoc refactors that I noticed while working through the module.\r\n\r\nThese could reasonably be classified as churn, however, the `turtle` module is, frankly, quite messy in places. I think these changes improve readability and, as a result, maintainability, so I intend to tidy up similar issues.\r\n\r\nThey should also have relatively little impact on useful Git history, since the majority of the affected lines date back to the original port in https://github.com/python/cpython/commit/97cf99fc7e8c56868711f7c91c3b1e37e4c66cba.\r\n\r\nIf there are no comments, I plan to merge this next Thursday.\r\n<!--\r\nThanks for your contribution!\r\nPlease read this comment in its entirety. It's quite important.\r\n\r\n# Pull Request title\r\n\r\nIt should be in the following format:\r\n\r\n```\r\ngh-NNNNNN: Summary of the changes made\r\n```\r\n\r\nWhere: gh-NNNNNN refers to the GitHub issue number.\r\n\r\nMost PRs will require an issue number. Trivial changes, like fixing a typo, do not need an issue.\r\n\r\n# Backport Pull Request title\r\n\r\nIf this is a backport PR (PR made against branches other than `main`),\r\nplease ensure that the PR title is in the following format:\r\n\r\n```\r\n[X.Y] <title from the original PR> (GH-NNNNNN)\r\n```\r\n\r\nWhere: [X.Y] is the branch name, for example: [3.13].\r\n\r\nGH-NNNNNN refers to the PR number from `main`.\r\n\r\n-->\r\n\n\n<!-- gh-issue-number: gh-158322 -->\n* Issue: gh-158322\n<!-- /gh-issue-number -->\n",
+      "author": "StanFromIreland",
+      "changed_files": [
+        "Lib/turtle.py"
+      ],
+      "labels": {
+        "pr_category": "refactor"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-refactor' mapped to pr_category='refactor'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/158281"
+    },
+    {
+      "id": "python-cpython-154846",
+      "repository": "python/cpython",
+      "number": 154846,
+      "title": "gh-151907: Reduce duplication in codegen comprehension functions",
+      "description": "Noticed that https://github.com/python/cpython/pull/151908 updated both `codegen_sync_comprehension_generator` and `codegen_async_comprehension_generator` but missed a spot to use the \"new\" helper `codegen_unpack_starred` in the latter. After looking more closely into it, I noticed that a large part is actually identical between both functions. Moving it to a separate functions avoids any unintended differences between sync and async comprehensions just because one code path wasn't updated properly.\r\n\r\n_Also added two `assert(!avoid_creation);` to the helper which were added to the async variant but missed for the sync one._\r\n\r\n/CC @ZeroIntensity\r\n\r\n<!-- gh-issue-number: gh-151907 -->\r\n* Issue: gh-151907\r\n<!-- /gh-issue-number -->\r\n",
+      "author": "cdce8p",
+      "changed_files": [
+        "Python/codegen.c"
+      ],
+      "labels": {
+        "pr_category": "refactor"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'type-refactor' mapped to pr_category='refactor'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/154846"
+    },
+    {
+      "id": "python-cpython-159668",
+      "repository": "python/cpython",
+      "number": 159668,
+      "title": "gh-159661: Remove incorrect traceback colorization documentation",
+      "description": "The traceback documentation incorrectly says that its output is colorized by default. The public APIs default to uncolored output; the interpreter enables color through an internal helper.\n\nRemove the incorrect version note. The interpreter's color controls remain documented in the command-line reference.\n\nFixes #159661.\n\n\n<!-- gh-issue-number: gh-159661 -->\n* Issue: gh-159661\n<!-- /gh-issue-number -->\n",
+      "author": "pablogsal",
+      "changed_files": [
+        "Doc/library/traceback.rst"
+      ],
+      "labels": {
+        "pr_category": "documentation"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'docs' mapped to pr_category='documentation'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/159668"
+    },
+    {
+      "id": "python-cpython-149295",
+      "repository": "python/cpython",
+      "number": 149295,
+      "title": "Add security warning to `mailbox` docs",
+      "description": "CC @bitdancer, you should have gotten a series of notifications just there. I suggest adding a security warning, they collectively are the motivation for this change.\r\n<!--\r\nThanks for your contribution!\r\nPlease read this comment in its entirety. It's quite important.\r\n\r\n# Pull Request title\r\n\r\nIt should be in the following format:\r\n\r\n```\r\ngh-NNNNNN: Summary of the changes made\r\n```\r\n\r\nWhere: gh-NNNNNN refers to the GitHub issue number.\r\n\r\nMost PRs will require an issue number. Trivial changes, like fixing a typo, do not need an issue.\r\n\r\n# Backport Pull Request title\r\n\r\nIf this is a backport PR (PR made against branches other than `main`),\r\nplease ensure that the PR title is in the following format:\r\n\r\n```\r\n[X.Y] <title from the original PR> (GH-NNNNNN)\r\n```\r\n\r\nWhere: [X.Y] is the branch name, for example: [3.13].\r\n\r\nGH-NNNNNN refers to the PR number from `main`.\r\n\r\n-->\r\n",
+      "author": "StanFromIreland",
+      "changed_files": [
+        "Doc/library/mailbox.rst"
+      ],
+      "labels": {
+        "pr_category": "documentation"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'docs' mapped to pr_category='documentation'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/149295"
+    },
+    {
+      "id": "python-cpython-159129",
+      "repository": "python/cpython",
+      "number": 159129,
+      "title": "gh-158585: Add 3 examples to PyBytesWriter documentation",
+      "description": "<!--\nThanks for your contribution!\nPlease read this comment in its entirety. It's quite important.\n\n# Pull Request title\n\nIt should be in the following format:\n\n```\ngh-NNNNNN: Summary of the changes made\n```\n\nWhere: gh-NNNNNN refers to the GitHub issue number.\n\nMost PRs will require an issue number. Trivial changes, like fixing a typo, do not need an issue.\n\n# Backport Pull Request title\n\nIf this is a backport PR (PR made against branches other than `main`),\nplease ensure that the PR title is in the following format:\n\n```\n[X.Y] <title from the original PR> (GH-NNNNNN)\n```\n\nWhere: [X.Y] is the branch name, for example: [3.13].\n\nGH-NNNNNN refers to the PR number from `main`.\n\n-->\n\n\n<!-- gh-issue-number: gh-158585 -->\n* Issue: gh-158585\n<!-- /gh-issue-number -->\n",
+      "author": "vstinner",
+      "changed_files": [
+        "Doc/c-api/bytes.rst"
+      ],
+      "labels": {
+        "pr_category": "documentation"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'docs' mapped to pr_category='documentation'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/159129"
+    },
+    {
+      "id": "python-cpython-159665",
+      "repository": "python/cpython",
+      "number": 159665,
+      "title": "gh-159394: Fix test_curses when $LINES or $COLUMNS is set",
+      "description": "A new pseudo-terminal has no size, so `newterm()` takes the size of the screen from the `LINES` and `COLUMNS` environment variables, and from the terminfo entry only if they are unset. `test_newterm` and `SLKTests.test_init_reserves_a_line` failed when either variable was set. The newterm tests now set both, so the screen is always 24x80.\n\nAlso add a test for `LINES` and `COLUMNS` themselves.\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)\n\n\n<!-- gh-issue-number: gh-159394 -->\n* Issue: gh-159394\n<!-- /gh-issue-number -->\n",
+      "author": "serhiy-storchaka",
+      "changed_files": [
+        "Lib/test/test_curses.py"
+      ],
+      "labels": {
+        "pr_category": "test"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'tests' mapped to pr_category='test'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/159665"
+    },
+    {
+      "id": "python-cpython-158000",
+      "repository": "python/cpython",
+      "number": 158000,
+      "title": "gh-83731: Test that isinstance() ignores tuple subclass methods",
+      "description": "<!--\r\nThanks for your contribution!\r\nPlease read this comment in its entirety. It's quite important.\r\n\r\n# Pull Request title\r\n\r\nIt should be in the following format:\r\n\r\n```\r\ngh-NNNNNN: Summary of the changes made\r\n```\r\n\r\nWhere: gh-NNNNNN refers to the GitHub issue number.\r\n\r\nMost PRs will require an issue number. Trivial changes, like fixing a typo, do not need an issue.\r\n\r\n# Backport Pull Request title\r\n\r\nIf this is a backport PR (PR made against branches other than `main`),\r\nplease ensure that the PR title is in the following format:\r\n\r\n```\r\n[X.Y] <title from the original PR> (GH-NNNNNN)\r\n```\r\n\r\nWhere: [X.Y] is the branch name, for example: [3.13].\r\n\r\nGH-NNNNNN refers to the PR number from `main`.\r\n\r\n-->\r\nAdd a regression test to make sure `isinstance()` reads the items of a tuple subclass directly, without calling its `__iter__()`, `__getitem__()` or `__len__()`.\r\n\r\nFollowing @pganssle suggestion to lock in current behaviour so that a future change to the tuple handling can't start using these methods by accident.\n\n<!-- gh-issue-number: gh-83731 -->\n* Issue: gh-83731\n<!-- /gh-issue-number -->\n",
+      "author": "vasiliyk",
+      "changed_files": [
+        "Lib/test/test_isinstance.py"
+      ],
+      "labels": {
+        "pr_category": "test"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'tests' mapped to pr_category='test'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/158000"
+    },
+    {
+      "id": "python-cpython-154803",
+      "repository": "python/cpython",
+      "number": 154803,
+      "title": "gh-98894: fix `CheckDtraceProbes` tests on Solaris",
+      "description": "Solaris does not use the notes section to list available probes (`readelf -n <binary>` returns nothing), which makes the `test_check_probes` fail.\r\n\r\nThis PR adds a Solaris specific path which gets all the available probes by listing those available in the running test process instead.\r\n\r\nThe output below is very different so the comparison needs to be updated a little as well.\r\n\r\n```\r\n>>> import subprocess\r\n>>> import os\r\n>>> res = subprocess.run([\"dtrace\", \"-l\", \"-P\", f\"python{os.getpid()}\"])\r\n   ID   PROVIDER            MODULE                          FUNCTION NAME\r\n   34 python1427 libpython3.16.so.1.0                         sys_audit audit\r\n   35 python1427 libpython3.16.so.1.0           sys_audit_tstate.part.0 audit\r\n   36 python1427 libpython3.16.so.1.0             dtrace_function_entry function-entry\r\n   37 python1427 libpython3.16.so.1.0          _PyEval_EvalFrameDefault function-entry\r\n   38 python1427 libpython3.16.so.1.0            dtrace_function_return function-return\r\n   39 python1427 libpython3.16.so.1.0          _PyEval_EvalFrameDefault function-return\r\n   40 python1427 libpython3.16.so.1.0                   gc_collect_main gc-done\r\n   41 python1427 libpython3.16.so.1.0                   gc_collect_main gc-start\r\n   42 python1427 libpython3.16.so.1.0 import_find_and_load_with_name.isra.0 import-find-load-done\r\n   43 python1427 libpython3.16.so.1.0 import_find_and_load_with_name.isra.0 import-find-load-start\r\n```\r\nA little unfortunate thing is that the test now requires elevated privileges, but that is true of all other DTrace tests as well, so I don't think that's a big deal.\r\n\r\nBTW: there is Solaris specific ELF section for DTrace metadata and at first I wanted to fix the test by reading that one (with `readelf -p .SUNW_dof <binary>`). Unfortunately, the section includes more metadata than just available probes, and the now removed line probe is also present in the dumped strings (so `test_check_probes` passes, but `test_missing_probes` unexpectedly passes as well).\r\n\r\nIt's possible to use `elfdump` and do some binary parsing to extract only the available ones, but that is a huge overkill for a test like this. For those interested, the change is here: https://github.com/kulikjak/cpython/commit/564e946aa219d8d933a0ae7a7149a2d74c025a29\r\n \n\n<!-- gh-issue-number: gh-98894 -->\n* Issue: gh-98894\n<!-- /gh-issue-number -->\n",
+      "author": "kulikjak",
+      "changed_files": [
+        "Lib/test/test_dtrace.py"
+      ],
+      "labels": {
+        "pr_category": "test"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'tests' mapped to pr_category='test'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/154803"
+    },
+    {
+      "id": "python-cpython-158394",
+      "repository": "python/cpython",
+      "number": 158394,
+      "title": "build(deps): bump follow-redirects from 1.15.9 to 1.16.0 in /Platforms/emscripten/browser_test",
+      "description": "Bumps [follow-redirects](https://github.com/follow-redirects/follow-redirects) from 1.15.9 to 1.16.0.\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/follow-redirects/follow-redirects/commit/0c23a223067201c368035e82954c11eb2578a33b\"><code>0c23a22</code></a> Release version 1.16.0 of the npm package.</li>\n<li><a href=\"https://github.com/follow-redirects/follow-redirects/commit/844c4d302ac963d29bdb5dc1754ec7df3d70d7f9\"><code>844c4d3</code></a> Add sensitiveHeaders option.</li>\n<li><a href=\"https://github.com/follow-redirects/follow-redirects/commit/5e8b8d024e2c76f804a284258e585ecb49a575be\"><code>5e8b8d0</code></a> ci: add Node.js 24.x to the CI matrix</li>\n<li><a href=\"https://github.com/follow-redirects/follow-redirects/commit/7953e2255aa0b93602eed3804f3bc5e6923a03af\"><code>7953e22</code></a> ci: upgrade GitHub Actions to use setup-node@v6 and checkout@v6</li>\n<li><a href=\"https://github.com/follow-redirects/follow-redirects/commit/86dc1f86e4b56bcd642c78384d51f10f123aea75\"><code>86dc1f8</code></a> Sanitizing input.</li>\n<li><a href=\"https://github.com/follow-redirects/follow-redirects/commit/21ef28a544c5e57f4c34b8476d75f2144609a1eb\"><code>21ef28a</code></a> Release version 1.15.11 of the npm package.</li>\n<li><a href=\"https://github.com/follow-redirects/follow-redirects/commit/7c88135da3bd0681a7e156ee66b16b2f6f98b480\"><code>7c88135</code></a> Roll back tree shaking.</li>\n<li><a href=\"https://github.com/follow-redirects/follow-redirects/commit/6e389ba094beec211a8847788a146917a16c1bdb\"><code>6e389ba</code></a> Release version 1.15.10 of the npm package.</li>\n<li><a href=\"https://github.com/follow-redirects/follow-redirects/commit/5bc496e0229abda823221e0c6267926a3f93f262\"><code>5bc496e</code></a> Shake me up before you go-go.</li>\n<li><a href=\"https://github.com/follow-redirects/follow-redirects/commit/694d6b47a42bc8377e5ef1480394de451e16bd5b\"><code>694d6b4</code></a> Bump minimist from 1.2.5 to 1.2.8</li>\n<li>See full diff in <a href=\"https://github.com/follow-redirects/follow-redirects/compare/v1.15.9...v1.16.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=follow-redirects&package-manager=npm_and_yarn&previous-version=1.15.9&new-version=1.16.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/python/cpython/network/alerts).\n\n</details>",
+      "author": "dependabot[bot]",
+      "changed_files": [
+        "Platforms/emscripten/browser_test/package-lock.json"
+      ],
+      "labels": {
+        "pr_category": "dependency"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'dependencies' mapped to pr_category='dependency'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/158394"
+    },
+    {
+      "id": "python-cpython-146048",
+      "repository": "python/cpython",
+      "number": 146048,
+      "title": "build(deps): bump qs from 6.14.0 to 6.15.0 in /Platforms/emscripten/browser_test",
+      "description": "Bumps [qs](https://github.com/ljharb/qs) from 6.14.0 to 6.15.0.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/ljharb/qs/blob/main/CHANGELOG.md\">qs's changelog</a>.</em></p>\n<blockquote>\n<h2><strong>6.15.0</strong></h2>\n<ul>\n<li>[New] <code>parse</code>: add <code>strictMerge</code> option to wrap object/primitive conflicts in an array (<a href=\"https://redirect.github.com/ljharb/qs/issues/425\">#425</a>, <a href=\"https://redirect.github.com/ljharb/qs/issues/122\">#122</a>)</li>\n<li>[Fix] <code>duplicates</code> option should not apply to bracket notation keys (<a href=\"https://redirect.github.com/ljharb/qs/issues/514\">#514</a>)</li>\n</ul>\n<h2><strong>6.14.2</strong></h2>\n<ul>\n<li>[Fix] <code>parse</code>: mark overflow objects for indexed notation exceeding <code>arrayLimit</code> (<a href=\"https://redirect.github.com/ljharb/qs/issues/546\">#546</a>)</li>\n<li>[Fix] <code>arrayLimit</code> means max count, not max index, in <code>combine</code>/<code>merge</code>/<code>parseArrayValue</code></li>\n<li>[Fix] <code>parse</code>: throw on <code>arrayLimit</code> exceeded with indexed notation when <code>throwOnLimitExceeded</code> is true (<a href=\"https://redirect.github.com/ljharb/qs/issues/529\">#529</a>)</li>\n<li>[Fix] <code>parse</code>: enforce <code>arrayLimit</code> on <code>comma</code>-parsed values</li>\n<li>[Fix] <code>parse</code>: fix error message to reflect arrayLimit as max index; remove extraneous comments (<a href=\"https://redirect.github.com/ljharb/qs/issues/545\">#545</a>)</li>\n<li>[Robustness] avoid <code>.push</code>, use <code>void</code></li>\n<li>[readme] document that <code>addQueryPrefix</code> does not add <code>?</code> to empty output (<a href=\"https://redirect.github.com/ljharb/qs/issues/418\">#418</a>)</li>\n<li>[readme] clarify <code>parseArrays</code> and <code>arrayLimit</code> documentation (<a href=\"https://redirect.github.com/ljharb/qs/issues/543\">#543</a>)</li>\n<li>[readme] replace runkit CI badge with shields.io check-runs badge</li>\n<li>[meta] fix changelog typo (<code>arrayLength</code> \u2192 <code>arrayLimit</code>)</li>\n<li>[actions] fix rebase workflow permissions</li>\n</ul>\n<h2><strong>6.14.1</strong></h2>\n<ul>\n<li>[Fix] ensure <code>arrayLimit</code> applies to <code>[]</code> notation as well</li>\n<li>[Fix] <code>parse</code>: when a custom decoder returns <code>null</code> for a key, ignore that key</li>\n<li>[Refactor] <code>parse</code>: extract key segment splitting helper</li>\n<li>[meta] add threat model</li>\n<li>[actions] add workflow permissions</li>\n<li>[Tests] <code>stringify</code>: increase coverage</li>\n<li>[Dev Deps] update <code>eslint</code>, <code>@ljharb/eslint-config</code>, <code>npmignore</code>, <code>es-value-fixtures</code>, <code>for-each</code>, <code>object-inspect</code></li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/ljharb/qs/commit/d9b4c66303375493c68c42d68e363e50b1753771\"><code>d9b4c66</code></a> v6.15.0</li>\n<li><a href=\"https://github.com/ljharb/qs/commit/cb41a545a32422ad3044584d3c4fa8f953552605\"><code>cb41a54</code></a> [New] <code>parse</code>: add <code>strictMerge</code> option to wrap object/primitive conflicts in...</li>\n<li><a href=\"https://github.com/ljharb/qs/commit/88e15636da953397262bd3014ab8b0d17d5c8039\"><code>88e1563</code></a> [Fix] <code>duplicates</code> option should not apply to bracket notation keys</li>\n<li><a href=\"https://github.com/ljharb/qs/commit/9d441d270486c3cc77f17289a9e0921c0f742aff\"><code>9d441d2</code></a> Merge backport release tags v6.0.6\u2013v6.13.3 into main</li>\n<li><a href=\"https://github.com/ljharb/qs/commit/85cc8cac6b444c9b4cb1172a151ac8fdee0a0301\"><code>85cc8ca</code></a> v6.12.5</li>\n<li><a href=\"https://github.com/ljharb/qs/commit/ffc12aa71030f508ab28cccbb1987424abf52379\"><code>ffc12aa</code></a> v6.11.4</li>\n<li><a href=\"https://github.com/ljharb/qs/commit/0506b11e457f6b3847b1dcf65b5c11c0eaf5dfb9\"><code>0506b11</code></a> [ac",
+      "author": "dependabot[bot]",
+      "changed_files": [
+        "Platforms/emscripten/browser_test/package-lock.json"
+      ],
+      "labels": {
+        "pr_category": "dependency"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'dependencies' mapped to pr_category='dependency'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/146048"
+    },
+    {
+      "id": "python-cpython-144793",
+      "repository": "python/cpython",
+      "number": 144793,
+      "title": "gh-144551: Update Windows builds to use OpenSSL 3.0.19",
+      "description": "<!-- EOM -->\n\n\n<!-- gh-issue-number: gh-144551 -->\n* Issue: gh-144551\n<!-- /gh-issue-number -->\n",
+      "author": "zware",
+      "changed_files": [
+        "Misc/NEWS.d/next/Windows/2026-02-13-11-07-51.gh-issue-144551.ENtMYD.rst",
+        "Misc/externals.spdx.json",
+        "PCbuild/get_externals.bat",
+        "PCbuild/python.props",
+        "PCbuild/readme.txt"
+      ],
+      "labels": {
+        "pr_category": "dependency"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'dependencies' mapped to pr_category='dependency'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/144793"
+    },
+    {
+      "id": "python-cpython-159442",
+      "repository": "python/cpython",
+      "number": 159442,
+      "title": "gh-159440: Pass --work-tree to the git commands used for the version tag",
+      "description": "### Summary\r\n\r\nThe `GITTAG` build stamp uses `git --git-dir $(srcdir)/.git describe --all --always --dirty`. `--git-dir` does not imply a work tree, so git falls back to the current directory. In an out-of-tree build `make` runs in the build tree, where none of the tracked files exist, so the internal `diff-index HEAD` of `--dirty` reports every tracked file as deleted and the tag always comes out as `heads/<branch>-dirty` \u2014 even for a pristine checkout. In-tree builds never hit this, and `GITVERSION`/`GITBRANCH` don't touch the work tree, so only the dirty check was wrong.\r\n\r\nPass `--work-tree $(srcdir)` for all three commands. The semantics of `-dirty` are preserved (a genuinely modified source tree still reports `-dirty`), and in-tree builds are unchanged because `$(srcdir)` is `.`.\r\n\r\n### Reproduce\r\n\r\nsys.version reports a spurious -dirty git tag for out-of-tree builds, even when the checkout is pristine:\r\n```console\r\n$ mkdir -p ~/build/cpython && cd ~/build/cpython\r\n$ bash ~/git/cpython/configure --prefix=$HOME/opt/cpython > /dev/null\r\n$ make -j && make install -j\r\n$ ~/opt/cpython/bin/python3 -VV\r\nPython 3.16.0a1+dev (heads/main-dirty:25883627946, Oct 14 2026, 22:17:06) [GCC 11.4.0]\r\n```\r\n\r\n### Root cause\r\nGITTAG uses git --git-dir $(srcdir)/.git describe --all --always --dirty. --git-dir does not imply a work tree, so git falls back to the current directory. In an out-of-tree build make runs in the build directory, where none of the tracked files exist, and the internal diff-index HEAD behind --dirty reports every tracked file as deleted. GITVERSION and GITBRANCH never touch the work tree, so only the dirty check was wrong.\r\n\r\n### Change\r\nAll three git commands now get --work-tree $(srcdir):\r\n\r\n```diff\r\n-    GITTAG=\"git --git-dir \\$(srcdir)/.git describe --all --always --dirty\"\r\n+    GITTAG=\"git --git-dir \\$(srcdir)/.git --work-tree \\$(srcdir) describe --all --always --dirty\"\r\n```\r\nThe semantics of -dirty are preserved: a genuinely modified source tree still reports -dirty, and in-tree builds are unchanged because $(srcdir) is ..\r\n\r\n\r\n### Testing\r\n\r\n- Out-of-tree build from a clean checkout: ./python -VV reports heads/main:<rev> instead of heads/main-dirty:<rev>.\r\n- With an uncommitted change to a tracked file in the source tree, the rebuild correctly reports heads/main-dirty:<rev> again.\r\n- In-tree build: the git commands resolve to the same values as before ($(srcdir) is .).\r\n- git state checks / make regen-configure produce no further diff in configure, pyconfig.h.in or aclocal.m4.\r\n\r\n### Issue\r\n<!-- gh-issue-number: gh-159440 -->\r\n* Issue: gh-159440\r\n<!-- /gh-issue-number -->\r\n",
+      "author": "sendaoYan",
+      "changed_files": [
+        "Misc/NEWS.d/next/Build/2026-10-15-11-20-48.gh-issue-159440.uIz6ms.rst",
+        "configure",
+        "configure.ac"
+      ],
+      "labels": {
+        "pr_category": "infrastructure"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'build' mapped to pr_category='infrastructure'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/159442"
+    },
+    {
+      "id": "python-cpython-144680",
+      "repository": "python/cpython",
+      "number": 144680,
+      "title": "GH-144679: When building with VS2026 on Windows, use PlatformToolSet v145 by default",
+      "description": "Furthermore do not warn when PlatformToolSet v145 is used.\n\n<!-- gh-issue-number: gh-144679 -->\n* Issue: gh-144679\n<!-- /gh-issue-number -->\n",
+      "author": "chris-eibl",
+      "changed_files": [
+        "Misc/NEWS.d/next/Build/2026-02-10-18-26-04.gh-issue-144679.FIH73W.rst",
+        "PCbuild/python.props",
+        "PCbuild/pythoncore.vcxproj",
+        "Tools/msi/bundle/bootstrap/pythonba.vcxproj"
+      ],
+      "labels": {
+        "pr_category": "infrastructure"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'build' mapped to pr_category='infrastructure'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/144680"
+    },
+    {
+      "id": "python-cpython-157924",
+      "repository": "python/cpython",
+      "number": 157924,
+      "title": "GH-157923: Add support for WASI SDK 34",
+      "description": "<!--\nThanks for your contribution!\nPlease read this comment in its entirety. It's quite important.\n\n# Pull Request title\n\nIt should be in the following format:\n\n```\ngh-NNNNNN: Summary of the changes made\n```\n\nWhere: gh-NNNNNN refers to the GitHub issue number.\n\nMost PRs will require an issue number. Trivial changes, like fixing a typo, do not need an issue.\n\n# Backport Pull Request title\n\nIf this is a backport PR (PR made against branches other than `main`),\nplease ensure that the PR title is in the following format:\n\n```\n[X.Y] <title from the original PR> (GH-NNNNNN)\n```\n\nWhere: [X.Y] is the branch name, for example: [3.13].\n\nGH-NNNNNN refers to the PR number from `main`.\n\n-->\n\n\n<!-- gh-issue-number: gh-157923 -->\n* Issue: gh-157923\n<!-- /gh-issue-number -->\n",
+      "author": "brettcannon",
+      "changed_files": [
+        ".github/workflows/reusable-wasi.yml",
+        "Misc/NEWS.d/next/Build/2026-09-21-10-50-31.gh-issue-157923.OffPYn.rst",
+        "Platforms/WASI/config.site-wasm32-wasi",
+        "Platforms/WASI/config.toml"
+      ],
+      "labels": {
+        "pr_category": "infrastructure"
+      },
+      "label_source": "derived",
+      "notes": "Maintainer-applied GitHub label 'build' mapped to pr_category='infrastructure'; not annotated against the Gatewise rubric. Source: https://github.com/python/cpython/pull/157924"
+    }
+  ]
+}

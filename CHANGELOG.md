@@ -39,6 +39,25 @@ Gatewise is pre-1.0. `0.x` releases may change the decision schemas or the API.
   reviews cannot double-perform the same action. Claims carry a token, so a
   reclaimed stale claim can never settle an outcome onto the newer claim.
 - **Linting in CI.** `ruff` and `mypy` over all packages, run as a new CI job.
+- **`derived` label source.** Labels borrowed from another human process (for
+  example maintainer-applied GitHub labels) are now a distinct `label_source`:
+  human-produced, but not annotated against Gatewise's question rubrics, so they
+  never count as human-validated accuracy.
+- **A second evaluation dataset** covering only `pr_category`:
+  `benchmarks/pr_triage_cpython_labels.json` (24 CPython pull requests labelled by
+  CPython maintainers, `label_source: "derived"`). It exercises the harness
+  against real pull requests and is **not** evidence about decision quality.
+  Regenerate it with `scripts/fetch_github_label_dataset.py`.
+
+### Changed
+
+- **Choice and score questions report accuracy only.** `pr_category` (one chosen
+  label) and `pr_risk` (an ordered level) have no true/false-positive split, so
+  precision/recall/F1 are reported for binary questions only. The previous
+  treatment counted every miss as a false negative, which made those numbers
+  meaningless.
+- **Ruff ignores `.commandcode/`.** That directory is untracked local agent
+  scratch space, not project source.
 
 ## [0.1.0]
 

@@ -13,8 +13,12 @@ Chosen deliberately, and each one has a reason to exist here:
 - **No metric asserts bitwise equality of scores.** Jev is non-deterministic, so
   two runs of the same case differ slightly. Comparison therefore uses level
   agreement and a tolerance, never exact floats.
+- **Choice and score questions report accuracy only.** Precision and recall need
+  a positive class; a single chosen label or an ordered level has none. Reporting
+  them would make every miss look like a false negative and F1 meaningless.
 
-Every metric is computed from explicit counts, so a result can be checked by hand.
+Every metric is computed from explicit per-case outcomes, so a result can be
+checked by hand.
 """
 
 from __future__ import annotations
@@ -128,6 +132,10 @@ class EvaluationReport:
     dataset_size: int
     case_results: list[dict[str, Any]] = field(default_factory=list)
     binary: dict[str, BinaryCounts] = field(default_factory=dict)
+    #: Choice and score questions have no true/false-positive split; only
+    #: accuracy is meaningful, so they are reported separately from ``binary``.
+    choice_correct: dict[str, list[bool]] = field(default_factory=dict)
+    score_correct: dict[str, list[bool]] = field(default_factory=dict)
     calibration: dict[str, list[tuple[float, float]]] = field(default_factory=dict)
     latency_ms: list[int] = field(default_factory=list)
     input_tokens: list[int] = field(default_factory=list)
@@ -149,6 +157,14 @@ class EvaluationReport:
             "failed": len(self.failures),
             "binary_metrics": {
                 name: counts.to_dict() for name, counts in sorted(self.binary.items())
+            },
+            "choice_accuracy": {
+                name: round(sum(correct) / len(correct), 4)
+                for name, correct in sorted(self.choice_correct.items())
+            },
+            "score_accuracy": {
+                name: round(sum(correct) / len(correct), 4)
+                for name, correct in sorted(self.score_correct.items())
             },
             "brier": {
                 name: round(brier_score(pairs), 4)

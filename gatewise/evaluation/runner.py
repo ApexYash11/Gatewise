@@ -142,19 +142,17 @@ def _score_case(
                 false_negative=counts.false_negative + (not positive and truth),
             )
         elif isinstance(answer, ScoreAnswer):
+            # A score has no false-positive split either: compare the discrete
+            # level, and report exact-level accuracy rather than precision/F1.
             predicted_level = answer.resolve_level()
-            correct = int(predicted_level) == int(expected)
-            counts = report.binary.setdefault(question, BinaryCounts())
-            report.binary[question] = BinaryCounts(
-                true_positive=counts.true_positive + correct,
-                false_negative=counts.false_negative + (not correct),
+            report.score_correct.setdefault(question, []).append(
+                int(predicted_level) == int(expected)
             )
         elif isinstance(answer, ChoiceAnswer):
-            correct = answer.choice == expected
-            counts = report.binary.setdefault(question, BinaryCounts())
-            report.binary[question] = BinaryCounts(
-                true_positive=counts.true_positive + correct,
-                false_negative=counts.false_negative + (not correct),
+            # Precision/recall are undefined for a single chosen label: every
+            # miss is a miss, not a false positive. Keep only accuracy.
+            report.choice_correct.setdefault(question, []).append(
+                answer.choice == expected
             )
 
 
@@ -177,9 +175,7 @@ def compare(reports: list[EvaluationReport]) -> list[dict[str, Any]]:
                 "security_review_f1": summary["binary_metrics"]
                 .get("pr_security_review", {})
                 .get("f1"),
-                "pr_risk_accuracy": summary["binary_metrics"]
-                .get("pr_risk", {})
-                .get("accuracy"),
+                "pr_risk_accuracy": summary["score_accuracy"].get("pr_risk"),
                 "latency_p50_ms": summary["latency_ms"]["p50"],
                 "cost_usd": summary["cost_usd"]["total"],
             }
